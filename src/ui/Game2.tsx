@@ -3,7 +3,7 @@ import { type Card, trumpOf } from '../engine/cards';
 import { type Deal2, type TrumpAction, declareStage2, legalCards2, trumpOptions2 } from '../engine/deal2';
 import { type Match2, type Target, announceMove, autoDeclare, newMatch2, playMove2, showMove, trumpMove2 } from '../engine/match';
 import { type BotLevel, botPlay2, botTrump2 } from '../bots';
-import { type Lang, type Strings, STRINGS } from './i18n';
+import { type Lang, type Strings, STRINGS, fill } from './i18n';
 import {
   Avatar,
   Bubble,
@@ -11,6 +11,7 @@ import {
   CardView,
   DeclarePanel,
   ExitConfirm,
+  FullscreenButton,
   HandView,
   Modal,
   SeatCombos,
@@ -90,6 +91,9 @@ export function Table2(props: Table2Props) {
   const collectTo = finished && lastTrick ? positionOf(lastTrick.winner) : null;
   const trump = deal.trump ? trumpOf(deal.trump) : null;
   const stage = !paused ? declareStage2(match.deal, mySeat) : null;
+  // "Don't show" just hides the panel; playing the card then forfeits the combinations.
+  const [skippedShow, setSkippedShow] = useState<number | null>(null);
+  const declaring = stage === 'announce' || (stage === 'show' && skippedShow !== match.dealIndex);
   const legal = !paused ? legalCards2(match.deal, mySeat) : [];
   const played = [...deal.tricks.flatMap((x) => x.cards), ...deal.trick];
 
@@ -108,10 +112,12 @@ export function Table2(props: Table2Props) {
           )}
           {deal.taker === seat && <span className="taker-chip">{t.trump}</span>}
         </div>
-        {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
         {seat === opp && <CardBacks count={deal.hands[opp].length} />}
-        {call && <Bubble tone="gold">{call}</Bubble>}
-        {deal.phase === 'play' && <SeatCombos decl={deal.decl} seat={seat} mySeat={mySeat} tricksDone={deal.tricks.length} t={t} />}
+        <div className="seat-extras">
+          {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
+          {call && <Bubble tone="gold">{call}</Bubble>}
+          {deal.phase === 'play' && <SeatCombos decl={deal.decl} seat={seat} mySeat={mySeat} tricksDone={deal.tricks.length} t={t} />}
+        </div>
       </div>
     );
   };
@@ -138,12 +144,13 @@ export function Table2(props: Table2Props) {
             </>
           )}
         </div>
+        <FullscreenButton t={t} />
       </header>
 
       <div className="table two">
         {seatBlock(opp)}
         <div className="center">
-          <div className="felt" />
+          <div className="board" />
           {choosing ? (
             <div className="turn-up">
               <div className="muted">{t.turnUp}</div>
@@ -157,18 +164,21 @@ export function Table2(props: Table2Props) {
       </div>
 
       <div className="bottom">
-        {!paused && choosing && <TrumpPanel key={`${match.dealIndex}-${deal.phase}`} deal={deal} mySeat={mySeat} lang={lang} t={t} onTrump={onTrump} />}
-        {stage && (
-          <DeclarePanel
-            key={`${match.dealIndex}-${stage}`}
-            stage={stage}
-            combos={stage === 'announce' ? match.deal.decl!.detected[mySeat] : match.deal.decl!.announced[mySeat]!}
-            t={t}
-            onAnnounce={onAnnounce}
-            onShow={onShow}
-          />
-        )}
-        {legal.length > 0 && stage !== 'announce' && <div className="turn-hint">{t.yourTurn}</div>}
+        <div className="controls">
+          {!paused && choosing && <TrumpPanel key={`${match.dealIndex}-${deal.phase}`} deal={deal} mySeat={mySeat} lang={lang} t={t} onTrump={onTrump} />}
+          {declaring && (
+            <DeclarePanel
+              key={`${match.dealIndex}-${stage}`}
+              stage={stage!}
+              combos={stage === 'announce' ? match.deal.decl!.detected[mySeat] : match.deal.decl!.announced[mySeat]!}
+              t={t}
+              onAnnounce={onAnnounce}
+              onShow={onShow}
+              onSkipShow={() => setSkippedShow(match.dealIndex)}
+            />
+          )}
+          {legal.length > 0 && !declaring && <div className="turn-hint">{t.yourTurn}</div>}
+        </div>
         <HandView key={match.dealIndex} hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} locked={stage === 'announce'} />
       </div>
 
@@ -225,14 +235,20 @@ function DealSummary2({
       <td>{v[opp]}</td>
     </tr>
   );
+  const T = deal.taker!;
+  const total = (side: number) => tally.cardRaw[side] + tally.comboRaw[side] + tally.blotRaw[side];
   return (
     <Modal>
       <h2>{t.dealResult}</h2>
-      <p>
-        {t.trump}: <StrainLabel strain={deal.trump!} lang={lang} /> · {seatName(deal.taker!)} ·{' '}
-        <b className={s.made ? 'ok-text' : 'warn-text'}>{s.made ? t.made : t.failed}</b>
-        {s.kaput && <b> · {t.kaput}</b>}
+      <p className="muted">
+        {fill(t.trumpTakenBy, { name: seatName(T) })} · <StrainLabel strain={deal.trump!} lang={lang} />
       </p>
+      <div className={`result-banner ${s.made ? 'ok' : 'bad'}`}>
+        <span className="result-icon">{s.made ? '✓' : '✗'}</span>
+        {s.made ? t.madeLong : t.failedLong}
+      </div>
+      <p>{fill(t.takerNeed, { got: total(T), opp: total(1 - T) })}</p>
+      {s.kaput && <p className="ok-text">{t.kaputLong}</p>}
       <table className="summary">
         <thead>
           <tr>

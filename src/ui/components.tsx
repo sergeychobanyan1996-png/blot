@@ -24,6 +24,60 @@ const PIPS: Partial<Record<Rank, [number, number, boolean][]>> = {
   '10': [[30, 20, false], [70, 20, false], [50, 30, false], [30, 40, false], [70, 40, false], [30, 60, true], [70, 60, true], [50, 70, true], [30, 80, true], [70, 80, true]],
 };
 
+const INK = '#111';
+const GOLD = '#e8b21e';
+const BLUE = '#1f4e9c';
+const SKIN = '#f6d8b8';
+
+/** One half of a double-headed court figure (drawn twice, the second turned upside down). */
+function CourtHalf({ rank, red, sym }: { rank: 'J' | 'Q' | 'K'; red: boolean; sym: string }) {
+  const accent = red ? '#d0121b' : INK;
+  return (
+    <g strokeWidth={1.2} stroke={INK} strokeLinejoin="round">
+      {/* robe */}
+      <path d="M14 70 L22 44 Q50 33 78 44 L86 70 Z" fill={GOLD} />
+      <path d="M22 70 L27 50 L36 48 L34 70 Z" fill={BLUE} />
+      <path d="M78 70 L73 50 L64 48 L66 70 Z" fill={BLUE} />
+      <path d="M41 41 L59 41 L63 70 L37 70 Z" fill={accent} />
+      <path d="M50 46 L55 56 L50 66 L45 56 Z" fill={GOLD} />
+      <path d="M36 40 Q50 49 64 40 L60 35 Q50 42 40 35 Z" fill="#fff" />
+      {/* head */}
+      {rank === 'Q' && <path d="M38 22 Q34 38 42 41 L58 41 Q66 38 62 22 Z" fill={GOLD} />}
+      <circle cx="50" cy="26" r="10" fill={SKIN} />
+      <path d="M46 25 h2 M52 25 h2 M48 31 q2 1.5 4 0" fill="none" strokeWidth={1} />
+      {/* headwear */}
+      {rank === 'K' && <path d="M38 18 L39 5 L44.5 12 L50 3 L55.5 12 L61 5 L62 18 Z" fill={GOLD} />}
+      {rank === 'K' && <path d="M44 33 Q50 41 56 33 Q50 37 44 33 Z" fill={INK} />}
+      {rank === 'Q' && <path d="M40 18 Q41 9 44 13 Q47 6 50 12 Q53 6 56 13 Q59 9 60 18 Z" fill={GOLD} />}
+      {rank === 'J' && <path d="M37 20 Q49 4 64 15 L66 20 Z" fill={accent} />}
+      {rank === 'J' && <path d="M62 15 Q74 6 78 14" fill="none" stroke={GOLD} strokeWidth={2.5} />}
+      {/* what they hold */}
+      {rank === 'K' && <path d="M80 8 L80 58 M75 16 L85 16" fill="none" strokeWidth={2.2} />}
+      {rank === 'Q' && <circle cx="24" cy="40" r="4" fill={accent} />}
+      {rank === 'Q' && <path d="M24 44 L26 60" fill="none" />}
+      {rank === 'J' && <path d="M20 10 L22 60 M16 14 Q20 6 24 14" fill="none" strokeWidth={2} />}
+      <text x="10" y="18" fontSize="13" fill={accent} stroke="none" fontFamily="Arial">
+        {sym}
+      </text>
+    </g>
+  );
+}
+
+function CourtArt({ card }: { card: Card }) {
+  const rank = card.rank as 'J' | 'Q' | 'K';
+  const red = isRed(card.suit);
+  const sym = SUIT_SYMBOL[card.suit];
+  return (
+    <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <CourtHalf rank={rank} red={red} sym={sym} />
+      <g transform="rotate(180 50 70)">
+        <CourtHalf rank={rank} red={red} sym={sym} />
+      </g>
+      <path d="M0 70 H100" stroke={INK} strokeWidth={1} />
+    </svg>
+  );
+}
+
 function CardFace({ card }: { card: Card }) {
   const sym = SUIT_SYMBOL[card.suit];
   const pips = PIPS[card.rank];
@@ -43,8 +97,7 @@ function CardFace({ card }: { card: Card }) {
         {card.rank === 'A' && <span className="ace">{sym}</span>}
         {face && (
           <span className="face">
-            <span className="face-rank">{card.rank}</span>
-            <span className="face-suit">{sym}</span>
+            <CourtArt card={card} />
           </span>
         )}
       </span>
@@ -178,10 +231,11 @@ export function TrickView({
   );
 }
 
+/** A trump/suit sign drawn like a card's suit: card-coloured symbol on a small white tile. */
 export function StrainLabel({ strain, lang }: { strain: Strain; lang: Lang }) {
-  if (strain === 'NT') return <span className="strain">{strainName(lang, 'NT')}</span>;
+  if (strain === 'NT') return <span className="suit-chip nt">{strainName(lang, 'NT')}</span>;
   return (
-    <span className={`strain ${isRed(strain) ? 'red' : 'black'}`} title={strainName(lang, strain)}>
+    <span className={`suit-chip ${isRed(strain) ? 'red' : 'black'}`} title={strainName(lang, strain)} aria-label={strainName(lang, strain)}>
       {SUIT_SYMBOL[strain]}
     </span>
   );
@@ -296,12 +350,14 @@ export function DeclarePanel({
   t,
   onAnnounce,
   onShow,
+  onSkipShow,
 }: {
   stage: 'announce' | 'show';
   combos: readonly Combo[];
   t: Strings;
   onAnnounce: (picks: number[]) => void;
   onShow: () => void;
+  onSkipShow: () => void;
 }) {
   const [picked, setPicked] = useState<boolean[]>(() => combos.map(() => true));
   if (stage === 'show') {
@@ -314,9 +370,14 @@ export function DeclarePanel({
             </span>
           ))}
         </div>
-        <button className="btn primary" onClick={onShow}>
-          {t.showCombos}
-        </button>
+        <div className="action-row">
+          <button className="btn primary" onClick={onShow}>
+            {t.showCombos}
+          </button>
+          <button className="btn ghost" onClick={onSkipShow}>
+            {t.dontShow}
+          </button>
+        </div>
         <div className="muted small-text">{t.showHint}</div>
       </div>
     );
@@ -401,6 +462,24 @@ export function ExitConfirm({ t, online, onStay, onLeave }: { t: Strings; online
         </button>
       </div>
     </Modal>
+  );
+}
+
+/** Toggles browser full screen so the table can use the whole display. */
+export function FullscreenButton({ t }: { t: Strings }) {
+  const toggle = () => {
+    try {
+      if (document.fullscreenElement) void document.exitFullscreen();
+      else void document.documentElement.requestFullscreen();
+    } catch {
+      /* not supported (e.g. some phones) */
+    }
+  };
+  if (typeof document === 'undefined' || !document.fullscreenEnabled) return null;
+  return (
+    <button className="btn ghost fullscreen-btn" onClick={toggle} title={t.fullscreen} aria-label={t.fullscreen}>
+      ⛶
+    </button>
   );
 }
 

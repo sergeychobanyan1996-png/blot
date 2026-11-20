@@ -92,6 +92,19 @@ const hy = {
   exitOnline: 'Ձեր տեղում կխաղա բոտը։ Հղումով կարող եք վերադառնալ։',
   exitYes: 'Այո, դուրս գալ',
   exitNo: 'Ոչ, շարունակել',
+  dontShow: 'Չցույց տալ',
+  fullscreen: 'Ամբողջ էկրան',
+  madeLong: 'Պայմանագիրը կատարվեց',
+  failedLong: 'Պայմանագիրը չկատարվեց',
+  contractOfUs: 'Մեր պայմանագիրը',
+  contractOfThem: 'Նրանց պայմանագիրը',
+  neededGot: 'Պետք էր հավաքել {need}, հավաքեցին {got} (քարտեր + համադրություններ)',
+  kaputNeeded: 'Պետք էր նաև վերցնել բոլոր 8 ձեռքերը, վերցրին {tricks}',
+  kaputLong: 'Բոլոր 8 ձեռքերը վերցրեցին՝ կապուտ',
+  tharsLong: 'Ոչ մի ձեռք չվերցրին՝ թարս կապուտ, խաղը պարտված է',
+  trumpTakenBy: 'Կոզրը վերցրեց՝ {name}',
+  takerNeed: 'Պետք էր հավաքել ավելի, քան հակառակորդը. {got} ընդդեմ {opp}',
+  youGot: 'Միավորներ այս ռաունդում',
 } as const;
 
 export type Strings = Record<keyof typeof hy, string>;
@@ -181,6 +194,19 @@ const ru: Strings = {
   exitOnline: 'Вместо вас сыграет бот. Вернуться можно по ссылке.',
   exitYes: 'Да, выйти',
   exitNo: 'Нет, продолжить',
+  dontShow: 'Не показывать',
+  fullscreen: 'Во весь экран',
+  madeLong: 'Контракт выполнен',
+  failedLong: 'Контракт не выполнен',
+  contractOfUs: 'Наш контракт',
+  contractOfThem: 'Их контракт',
+  neededGot: 'Нужно было набрать {need}, набрали {got} (карты + комбинации)',
+  kaputNeeded: 'Нужно было также взять все 8 взяток, взяли {tricks}',
+  kaputLong: 'Взяли все 8 взяток — капут',
+  tharsLong: 'Не взяли ни одной взятки — обратный капут, партия проиграна',
+  trumpTakenBy: 'Козырь взял: {name}',
+  takerNeed: 'Нужно было набрать больше соперника: {got} против {opp}',
+  youGot: 'Очки за раздачу',
 };
 
 const en: Strings = {
@@ -268,6 +294,19 @@ const en: Strings = {
   exitOnline: 'A bot will play for you. You can come back with the link.',
   exitYes: 'Yes, leave',
   exitNo: 'No, keep playing',
+  dontShow: "Don't show",
+  fullscreen: 'Full screen',
+  madeLong: 'Contract made',
+  failedLong: 'Contract failed',
+  contractOfUs: 'Our contract',
+  contractOfThem: 'Their contract',
+  neededGot: 'Needed {need}, collected {got} (cards + combinations)',
+  kaputNeeded: 'Also needed all 8 tricks, took {tricks}',
+  kaputLong: 'Took all 8 tricks — capot',
+  tharsLong: 'Took no tricks — reverse capot, the match is lost',
+  trumpTakenBy: 'Trump taken by {name}',
+  takerNeed: 'Needed more than the opponent: {got} vs {opp}',
+  youGot: 'Points this deal',
 };
 
 export const STRINGS: Record<Lang, Strings> = { hy, ru, en };
@@ -278,6 +317,10 @@ const STRAIN_NAMES: Record<Lang, Record<Strain, string>> = {
   ru: { S: 'Пики', H: 'Черви', D: 'Бубны', C: 'Трефы', NT: 'Без козыря' },
   en: { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs', NT: 'No trump' },
 };
+/** Fills {placeholders} in a translated string. */
+export const fill = (text: string, vars: Record<string, string | number>): string =>
+  text.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ''));
+
 export const strainName = (lang: Lang, s: Strain): string => STRAIN_NAMES[lang][s];
 
 const LEVEL_NAMES: Record<Lang, string[]> = {

@@ -4,7 +4,7 @@ import { type BazarAction, bazarOptions, teamOf4 } from '../engine/bazar';
 import { type Deal4, declareStage4, legalCards4 } from '../engine/deal4';
 import { type Match4, type Target, announceMove, autoDeclare, bazarMove4, newMatch4, playMove4, showMove } from '../engine/match';
 import { type BotLevel, botBazar4, botPlay4 } from '../bots';
-import { type Lang, type Strings, STRINGS } from './i18n';
+import { type Lang, type Strings, STRINGS, fill } from './i18n';
 import {
   ActionBubble,
   Avatar,
@@ -14,6 +14,7 @@ import {
   CardBacks,
   DeclarePanel,
   ExitConfirm,
+  FullscreenButton,
   HandView,
   Modal,
   SeatCombos,
@@ -67,6 +68,9 @@ export function Table4(props: Table4Props) {
   const collectTo = finished && lastTrick ? positionOf(lastTrick.winner) : null;
   const trump = deal.contract ? trumpOf(deal.contract.bid.strain) : null;
   const stage = !paused ? declareStage4(match.deal, mySeat) : null;
+  // "Don't show" just hides the panel; playing the card then forfeits the combinations.
+  const [skippedShow, setSkippedShow] = useState<number | null>(null);
+  const declaring = stage === 'announce' || (stage === 'show' && skippedShow !== match.dealIndex);
   const legal = !paused ? legalCards4(match.deal, mySeat) : [];
   const played = [...deal.tricks.flatMap((x) => x.cards), ...deal.trick];
 
@@ -84,11 +88,14 @@ export function Table4(props: Table4Props) {
             </span>
           )}
         </div>
-        {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
         {seat !== mySeat && <CardBacks count={deal.hands[seat].length} vertical={positionOf(seat) !== 'top'} />}
-        {deal.phase === 'bazar' && <ActionBubble action={lastAction(seat)} lang={lang} t={t} />}
-        {call && <Bubble tone="gold">{call}</Bubble>}
-        {deal.phase === 'play' && <SeatCombos decl={deal.decl} seat={seat} mySeat={mySeat} tricksDone={deal.tricks.length} t={t} />}
+        {/* Floats beside the seat so bubbles never resize the table. */}
+        <div className="seat-extras">
+          {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
+          {deal.phase === 'bazar' && <ActionBubble action={lastAction(seat)} lang={lang} t={t} />}
+          {call && <Bubble tone="gold">{call}</Bubble>}
+          {deal.phase === 'play' && <SeatCombos decl={deal.decl} seat={seat} mySeat={mySeat} tricksDone={deal.tricks.length} t={t} />}
+        </div>
       </div>
     );
   };
@@ -116,30 +123,35 @@ export function Table4(props: Table4Props) {
             </>
           )}
         </div>
+        <FullscreenButton t={t} />
       </header>
 
       <div className="table four">
         {[0, 1, 2, 3].map(seatBlock)}
         <div className="center">
-          <div className="felt" />
+          <div className="board" />
           <TrickView trick={shownTrick} positionOf={positionOf} collectTo={collectTo} />
           {pacing.redealNotice && <div className="notice">{t.redeal}</div>}
         </div>
       </div>
 
       <div className="bottom">
-        {showBazar && <BazarPanel key={`${b.history.length}`} options={humanOptions!} lang={lang} t={t} onAction={onBazar} />}
-        {stage && (
-          <DeclarePanel
-            key={`${match.dealIndex}-${stage}`}
-            stage={stage}
-            combos={stage === 'announce' ? match.deal.decl!.detected[mySeat] : match.deal.decl!.announced[mySeat]!}
-            t={t}
-            onAnnounce={onAnnounce}
-            onShow={onShow}
-          />
-        )}
-        {legal.length > 0 && stage !== 'announce' && <div className="turn-hint">{t.yourTurn}</div>}
+        {/* Fixed-height slot: panels appear here without moving the table. */}
+        <div className="controls">
+          {showBazar && <BazarPanel key={`${b.history.length}`} options={humanOptions!} lang={lang} t={t} onAction={onBazar} />}
+          {declaring && (
+            <DeclarePanel
+              key={`${match.dealIndex}-${stage}`}
+              stage={stage!}
+              combos={stage === 'announce' ? match.deal.decl!.detected[mySeat] : match.deal.decl!.announced[mySeat]!}
+              t={t}
+              onAnnounce={onAnnounce}
+              onShow={onShow}
+              onSkipShow={() => setSkippedShow(match.dealIndex)}
+            />
+          )}
+          {legal.length > 0 && !declaring && <div className="turn-hint">{t.yourTurn}</div>}
+        </div>
         <HandView key={match.dealIndex} hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} locked={stage === 'announce'} />
       </div>
 
@@ -196,15 +208,27 @@ function DealSummary4({
       <td>{v[1 - myTeam]}</td>
     </tr>
   );
+  const team = c.team;
+  const need = c.bid.level * 10;
+  const got = tally.cardRaw[team] + tally.comboRaw[team] + tally.blotRaw[team];
   return (
     <Modal>
       <h2>{t.dealResult}</h2>
-      <p>
-        <BidLabel bid={c.bid} lang={lang} t={t} /> · {seatName(c.declarer)} ·{' '}
-        <b className={s.made ? 'ok-text' : 'warn-text'}>{s.made ? t.made : t.failed}</b>
-        {s.tharsKaput && <b className="warn-text"> · {t.tharsKaput}</b>}
-        {s.kaput && !s.tharsKaput && <b> · {t.kaput}</b>}
+      <p className="muted">
+        {team === myTeam ? t.contractOfUs : t.contractOfThem}: <BidLabel bid={c.bid} lang={lang} t={t} /> · {seatName(c.declarer)}
+        {c.contra > 0 && <span className="warn-text"> · {c.contra === 1 ? t.contra : t.sur}</span>}
       </p>
+      <div className={`result-banner ${s.made ? 'ok' : 'bad'}`}>
+        <span className="result-icon">{s.made ? '✓' : '✗'}</span>
+        {s.made ? t.madeLong : t.failedLong}
+      </div>
+      <p>
+        {s.tharsKaput
+          ? t.tharsLong
+          : fill(t.neededGot, { need, got })}
+      </p>
+      {c.bid.kaput && !s.tharsKaput && <p>{fill(t.kaputNeeded, { tricks: tally.tricksWon[team] })}</p>}
+      {s.kaput && !s.tharsKaput && !c.bid.kaput && <p className="ok-text">{t.kaputLong}</p>}
       <table className="summary">
         <thead>
           <tr>

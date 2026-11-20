@@ -17,7 +17,8 @@
   --ok: #8be28b;
   --panel: rgba(8, 18, 13, 0.62);
   --panel-line: rgba(255, 255, 255, 0.12);
-  --cw: 70px; /* card width; everything on a card scales from it */
+  --cw: clamp(48px, 8.6vh, 78px); /* card width; scales with the screen height; everything on a card scales from it */
+  --cw-small: clamp(40px, 7.2vh, 64px);
   font-family: 'Noto Sans Armenian', 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -163,7 +164,8 @@ button {
 .game {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   /* The fanned hand and seat plates may poke past the edges on phones. */
   overflow-x: clip;
 }
@@ -196,8 +198,11 @@ button {
   margin-left: auto;
 }
 
+/* The table takes whatever height is left; the panel slot and hand below have fixed heights,
+   so nothing that appears around the table can move it. */
 .table {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   gap: 6px;
   padding: 10px;
@@ -205,7 +210,8 @@ button {
   justify-items: center;
 }
 .table.four {
-  grid-template-columns: 1fr 2.2fr 1fr;
+  grid-template-columns: 1fr minmax(0, 1.4fr) 1fr;
+  grid-template-rows: 96px minmax(0, 1fr) 48px;
   grid-template-areas:
     '. top .'
     'left center right'
@@ -213,7 +219,11 @@ button {
 }
 .table.two {
   grid-template-columns: 1fr;
+  grid-template-rows: 96px minmax(0, 1fr) 48px;
   grid-template-areas: 'top' 'center' 'bottom';
+}
+.table.two .center {
+  max-width: 460px;
 }
 .seat-top {
   grid-area: top;
@@ -231,24 +241,24 @@ button {
   grid-area: center;
   position: relative;
   width: 100%;
-  min-height: 260px;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-/* The table itself: an oval of felt in a wooden rim. */
-.felt {
+/* The table itself: a plain rectangular card table with a wooden rim. */
+.board {
   position: absolute;
-  inset: 4px 2%;
-  border-radius: 50%;
+  inset: 8px 10px;
+  border-radius: 14px;
   background:
-    radial-gradient(ellipse at 50% 38%, rgba(255, 255, 255, 0.08), transparent 60%),
-    radial-gradient(ellipse at 50% 50%, var(--felt-1) 0%, var(--felt-2) 62%, var(--felt-3) 100%);
+    radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.06), transparent 65%),
+    linear-gradient(180deg, var(--felt-1) 0%, var(--felt-2) 70%, var(--felt-3) 100%);
   box-shadow:
-    inset 0 0 50px rgba(0, 0, 0, 0.45),
-    0 0 0 9px var(--wood-1),
-    0 0 0 11px var(--wood-2),
-    0 14px 40px rgba(0, 0, 0, 0.55);
+    inset 0 0 40px rgba(0, 0, 0, 0.4),
+    0 0 0 8px var(--wood-1),
+    0 0 0 10px var(--wood-2),
+    0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
 .seat {
@@ -257,7 +267,45 @@ button {
   align-items: center;
   gap: 6px;
   position: relative;
-  z-index: 1;
+  z-index: 2;
+}
+/* Bubbles, notes and combinations float beside the seat instead of taking layout space. */
+.seat-extras {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.seat-top .seat-extras {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+}
+.seat-left .seat-extras {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 6px;
+}
+.seat-right .seat-extras {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 6px;
+}
+.seat-bottom .seat-extras {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: row;
+  margin-left: 8px;
+}
+.seat-extras .bubble::before {
+  display: none;
 }
 .plate {
   display: flex;
@@ -375,58 +423,60 @@ button {
 }
 
 /* ---------- cards ---------- */
+/* Large-index ("jumbo") faces: a big rank and suit in the corners, plain white card,
+   court cards framed with a double-headed figure. */
 .card {
   --ch: calc(var(--cw) * 1.45);
   width: var(--cw);
   height: var(--ch);
-  border-radius: calc(var(--cw) * 0.09);
-  background: linear-gradient(160deg, #ffffff 0%, var(--card) 45%, #f1ebdb 100%);
-  border: 1px solid var(--card-edge);
-  box-shadow:
-    inset 0 0 0 calc(var(--cw) * 0.03) #fff,
-    0 3px 8px rgba(0, 0, 0, 0.35);
+  border-radius: calc(var(--cw) * 0.08);
+  background: #fff;
+  border: 1px solid #cfc8b8;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   position: relative;
   padding: 0;
   flex: none;
   overflow: hidden;
-  color: var(--card-ink);
-  font-family: Georgia, 'Times New Roman', serif;
+  color: #111;
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
 }
 .card.red {
-  color: var(--red);
+  color: #d0121b;
 }
 .card .corner {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 0.95;
+  line-height: 0.9;
   font-weight: 700;
+  width: 24%;
 }
 .card .corner .rank {
-  font-size: calc(var(--cw) * 0.25);
-  letter-spacing: -0.04em;
+  font-size: calc(var(--cw) * 0.34);
+  letter-spacing: -0.06em;
 }
 .card .corner .suit {
-  font-size: calc(var(--cw) * 0.2);
+  font-size: calc(var(--cw) * 0.27);
+  margin-top: 4%;
 }
 .card .corner.tl {
-  top: 5%;
-  left: 7%;
+  top: 4%;
+  left: 3%;
 }
 .card .corner.br {
-  bottom: 5%;
-  right: 7%;
+  bottom: 4%;
+  right: 3%;
   transform: rotate(180deg);
 }
 .card .art {
   position: absolute;
-  inset: 12% 20%;
+  inset: 8% 8% 8% 28%;
 }
 .card .pip {
   position: absolute;
   transform: translate(-50%, -50%);
-  font-size: calc(var(--cw) * 0.2);
+  font-size: calc(var(--cw) * 0.18);
   line-height: 1;
 }
 .card .pip.flip {
@@ -438,33 +488,24 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(var(--cw) * 0.6);
+  font-size: calc(var(--cw) * 0.5);
 }
 .card .face {
   position: absolute;
-  inset: 0;
-  border-radius: 8%;
-  border: calc(var(--cw) * 0.025) solid currentColor;
-  background:
-    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.035) 0 3px, transparent 3px 7px),
-    linear-gradient(180deg, #fff6dd, #f1dca6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 18%;
+  border: calc(var(--cw) * 0.018) solid currentColor;
+  overflow: hidden;
 }
-.card .face-rank {
-  font-size: calc(var(--cw) * 0.46);
-  font-weight: 700;
-  line-height: 1;
-}
-.card .face-suit {
-  font-size: calc(var(--cw) * 0.28);
-  line-height: 1;
+.card .face svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .card.small {
-  --cw: 58px;
+  --cw: var(--cw-small);
 }
 .card.mini {
   --cw: 28px;
@@ -516,6 +557,8 @@ button {
   display: flex;
   justify-content: center;
   padding: 22px 8px 14px;
+  height: calc(var(--cw) * 1.45 + 36px);
+  flex: none;
   flex-wrap: nowrap;
 }
 .card.in-hand {
@@ -672,7 +715,41 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+}
+/* Room for the bazar / trump / combination panels, so they never push the table around. */
+.controls {
+  height: 158px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.result-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 12px;
+}
+.result-banner.ok {
+  color: var(--ok);
+  background: rgba(139, 226, 139, 0.14);
+  border: 1px solid rgba(139, 226, 139, 0.5);
+}
+.result-banner.bad {
+  color: var(--warn);
+  background: rgba(255, 122, 89, 0.14);
+  border: 1px solid rgba(255, 122, 89, 0.5);
+}
+.result-icon {
+  font-size: 1.5rem;
 }
 .turn-hint {
   color: var(--gold);
@@ -889,15 +966,27 @@ button {
   .card.in-hand {
     margin-left: calc(var(--cw) * -0.18);
   }
+  .table {
+    min-height: 0;
+  }
   .table.four {
     grid-template-columns: auto 1fr auto;
     padding: 6px;
   }
-  .center {
-    min-height: 210px;
+  .board {
+    inset: 6px 2px;
   }
-  .felt {
-    inset: 4px 0;
+  .controls {
+    height: 170px;
+  }
+  /* Side seats are narrow on phones: keep their bubbles on the seat itself. */
+  .seat-left .seat-extras,
+  .seat-right .seat-extras {
+    left: 50%;
+    right: auto;
+    top: 100%;
+    transform: translateX(-50%);
+    margin: 4px 0 0;
   }
   .trick {
     width: 180px;
@@ -931,4 +1020,35 @@ button {
   .contract {
     margin-left: 0;
   }
+}
+
+.fullscreen-btn {
+  font-size: 1.2rem;
+  min-width: 40px;
+}
+
+/* Suit signs outside the cards (contract, bids, trump buttons) look like the suits on the cards. */
+.suit-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.45em;
+  height: 1.45em;
+  padding: 0 0.1em;
+  border-radius: 0.3em;
+  background: #fff;
+  color: #111;
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  font-weight: 700;
+  font-size: 1.05em;
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.suit-chip.red {
+  color: #d0121b;
+}
+.suit-chip.nt {
+  padding: 0 0.45em;
+  font-size: 0.85em;
+  color: #111;
 }
