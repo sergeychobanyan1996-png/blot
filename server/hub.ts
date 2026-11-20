@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { TARGETS } from '../src/engine/match';
+import { toLevel } from '../src/bots';
 import type { ClientMsg, RoomSettings, ServerMsg } from '../src/net/protocol';
 import { Room, RoomError } from './room';
 
@@ -46,7 +47,7 @@ function cleanSettings(s: Partial<RoomSettings> | undefined): RoomSettings {
   return {
     players: s?.players === 2 ? 2 : 4,
     target: TARGETS.includes(s?.target as never) ? (s!.target as RoomSettings['target']) : 101,
-    level: s?.level === 'easy' ? 'easy' : 'strong',
+    level: toLevel(s?.level),
   };
 }
 

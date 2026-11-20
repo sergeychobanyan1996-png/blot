@@ -456,6 +456,17 @@ button {
   font-weight: 700;
 }
 
+.seg.levels {
+  gap: 4px;
+}
+.level-btn {
+  min-width: 40px;
+  padding: 6px 0;
+}
+.level-name {
+  margin-top: 6px;
+}
+
 /* ---------- online ---------- */
 .online-box {
   display: flex;

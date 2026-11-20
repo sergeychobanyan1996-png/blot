@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { TARGETS, type Target } from '../engine/match';
-import type { BotLevel } from '../bots';
+import { type BotLevel, BOT_LEVELS, DEFAULT_LEVEL, toLevel } from '../bots';
 import type { RoomIntent } from '../net/useRoom';
-import { type Lang, LANGS, STRINGS } from './i18n';
+import { type Lang, LANGS, STRINGS, levelName } from './i18n';
 import { Game4 } from './Game4';
 import { Game2 } from './Game2';
 import { Online } from './Online';
@@ -32,7 +32,7 @@ export function App() {
   const [lang, setLang] = useState<Lang>(() => load('blot.lang', 'hy'));
   const [players, setPlayers] = useState<Players>(() => load('blot.players', 4));
   const [target, setTarget] = useState<Target>(() => load('blot.target', 101));
-  const [level, setLevel] = useState<BotLevel>(() => load('blot.level', 'strong'));
+  const [level, setLevel] = useState<BotLevel>(() => toLevel(load<unknown>('blot.level', DEFAULT_LEVEL)));
   const [name, setName] = useState<string>(() => load('blot.name', ''));
   const [code, setCode] = useState(roomFromUrl);
   // Opening a shared link with a known name goes straight into the room.
@@ -92,13 +92,19 @@ export function App() {
       </section>
       <section>
         <h3>{t.difficulty}</h3>
-        <div className="seg">
-          {(['easy', 'strong'] as BotLevel[]).map((v) => (
-            <button key={v} className={`btn ${level === v ? 'selected' : ''}`} onClick={() => pick('blot.level', setLevel)(v)}>
-              {t[v]}
+        <div className="seg levels">
+          {BOT_LEVELS.map((v) => (
+            <button
+              key={v}
+              className={`btn level-btn ${level === v ? 'selected' : ''}`}
+              title={levelName(lang, v)}
+              onClick={() => pick('blot.level', setLevel)(v)}
+            >
+              {v}
             </button>
           ))}
         </div>
+        <div className="muted level-name">{levelName(lang, level)}</div>
       </section>
       <button className="btn primary big" onClick={() => setScreen({ kind: 'local' })}>
         {t.vsBots}

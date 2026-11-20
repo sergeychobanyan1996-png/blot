@@ -70,7 +70,7 @@ describe('game server', () => {
     const b = new Client(server.port);
     await Promise.all([a.opened(), b.opened()]);
 
-    a.send({ type: 'create', name: 'Anna', settings: { players: 2, target: 101, level: 'easy' } });
+    a.send({ type: 'create', name: 'Anna', settings: { players: 2, target: 101, level: 4 } });
     await a.until(() => a.welcome !== null);
     const roomId = a.welcome!.roomId;
     expect(roomId).toMatch(/^[A-Z2-9]{5}$/);

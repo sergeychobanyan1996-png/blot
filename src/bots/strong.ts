@@ -13,9 +13,12 @@ import { handStrength } from './evaluate';
 import { inferVoids, sampleHands, without } from './knowledge';
 import { type SimDeal, cloneSim, playOut, simStep } from './sim';
 
-const PLAY_SAMPLES = 60;
-const BID_SAMPLES = 40;
-const TRUMP_SAMPLES = 80;
+/** How many hidden-card layouts to try per decision; more is slower and stronger. */
+export interface Samples {
+  play: number;
+  bid: number;
+  trump: number;
+}
 const STRAINS: Strain[] = ['S', 'H', 'D', 'C', 'NT'];
 
 const argmax = (values: number[]): number => values.reduce((best, v, i) => (v > values[best] ? i : best), 0);
@@ -36,7 +39,7 @@ function shownCards(perSeat: Combo[][], seats: number[], played: Card[]): Card[]
 
 // ---------------------------------------------------------------- 4 players: play
 
-export function strongPlay4(d: Deal4, seat: number, rng: Rng): Card {
+export function strongPlay4(d: Deal4, seat: number, rng: Rng, samples: number): Card {
   const legal = legalCards4(d, seat);
   if (legal.length === 1) return legal[0];
   const contract = d.contract!;
@@ -60,9 +63,14 @@ export function strongPlay4(d: Deal4, seat: number, rng: Rng): Card {
     tally.cardRaw[side] += t.cards.reduce((s, p) => s + cardValue(p.card, strain), 0);
   }
 
+  // The bazar still tells us something: judge each sampled hand together with what that seat already played.
+  const playedBy = [0, 1, 2, 3].map((s) => [...tricks.flat(), ...d.trick].filter((p) => p.seat === s).map((p) => p.card));
+  const fitsBids = bidsAccept(d.bazar, seat);
+  const accept = (hands: Card[][]) => fitsBids(hands.map((h, s) => [...h, ...playedBy[s]]));
+
   const totals = legal.map(() => 0);
-  for (let k = 0; k < PLAY_SAMPLES; k++) {
-    const hands = sampleHands(pool, counts, voids, fixed, rng);
+  for (let k = 0; k < samples; k++) {
+    const hands = sampleHands(pool, counts, voids, fixed, rng, accept);
     hands[seat] = myHand.slice();
     const base: SimDeal = {
       n: 4,
@@ -166,20 +174,20 @@ function contractEV(outs: Outcome[], contract: Contract, side: number): number {
   );
 }
 
-export function strongBazar4(b: BazarState, seat: number, hand: readonly Card[], rng: Rng): BazarAction | null {
+export function strongBazar4(b: BazarState, seat: number, hand: readonly Card[], rng: Rng, samples: number): BazarAction | null {
   const o = bazarOptions(b, seat);
   const me = teamOf4(seat);
   const cur = b.current;
 
   if (b.phase === 'awaitSur') {
     if (!o.sur || seat !== cur!.seat) return null;
-    const outs = outcomes(sampleLayouts(b, seat, hand, rng, BID_SAMPLES), b.dealer, cur!.bid.strain, me);
+    const outs = outcomes(sampleLayouts(b, seat, hand, rng, samples), b.dealer, cur!.bid.strain, me);
     const c = (contra: ContraLevel): Contract => ({ declarer: seat, team: me, bid: cur!.bid, contra });
     return contractEV(outs, c(2), me) > contractEV(outs, c(1), me) + 1 ? { type: 'sur' } : { type: 'pass' };
   }
   if (seat !== b.turn) return null;
 
-  const layouts = sampleLayouts(b, seat, hand, rng, BID_SAMPLES);
+  const layouts = sampleLayouts(b, seat, hand, rng, samples);
   const contractOf = (declarer: number, bid = cur!.bid, contra: ContraLevel = 0): Contract => ({
     declarer,
     team: teamOf4(declarer),
@@ -213,13 +221,13 @@ export function strongBazar4(b: BazarState, seat: number, hand: readonly Card[],
 
 // ---------------------------------------------------------------- 2 players
 
-export function strongTrump2(d: Deal2, seat: number, rng: Rng): TrumpAction {
+export function strongTrump2(d: Deal2, seat: number, rng: Rng, samples: number): TrumpAction {
   const o = trumpOptions2(d, seat);
   const suits: Suit[] = o.take ? [d.turnUp.suit] : o.name;
   const first = 1 - d.dealer;
   const pool = without(without(makeDeck(24), d.hands[seat]), [d.turnUp]);
   const totals = suits.map(() => 0);
-  for (let k = 0; k < TRUMP_SAMPLES; k++) {
+  for (let k = 0; k < samples; k++) {
     const rest = shuffle(pool, rng);
     const hands: Card[][] = [[], []];
     hands[seat] = d.hands[seat].slice();
@@ -247,11 +255,11 @@ export function strongTrump2(d: Deal2, seat: number, rng: Rng): TrumpAction {
     });
   }
   const i = argmax(totals);
-  if (o.pass && totals[i] / TRUMP_SAMPLES < 1) return { type: 'pass' };
+  if (o.pass && totals[i] / samples < 1) return { type: 'pass' };
   return o.take ? { type: 'take' } : { type: 'name', suit: suits[i] };
 }
 
-export function strongPlay2(d: Deal2, seat: number, rng: Rng): Card {
+export function strongPlay2(d: Deal2, seat: number, rng: Rng, samples: number): Card {
   const legal = legalCards2(d, seat);
   if (legal.length === 1) return legal[0];
   const opp = 1 - seat;
@@ -276,7 +284,7 @@ export function strongPlay2(d: Deal2, seat: number, rng: Rng): Card {
   }
 
   const totals = legal.map(() => 0);
-  for (let k = 0; k < PLAY_SAMPLES; k++) {
+  for (let k = 0; k < samples; k++) {
     const sampled = sampleHands(pool, counts, voids, fixed, rng);
     const hands: Card[][] = [[], []];
     hands[seat] = myHand.slice();

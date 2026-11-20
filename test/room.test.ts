@@ -4,7 +4,7 @@ import { type Match4, bazarOptions, cardId, legalCards4, teamOf4 } from '../src/
 
 function setup4() {
   let clock = 1_000_000;
-  const room = new Room('ABCDE', { players: 4, target: 101, level: 'easy' }, () => clock);
+  const room = new Room('ABCDE', { players: 4, target: 101, level: 4 }, () => clock);
   const a = room.join('Anna');
   const b = room.join('Bob');
   return { room, a, b, tick: (ms: number) => (clock += ms), now: () => clock };

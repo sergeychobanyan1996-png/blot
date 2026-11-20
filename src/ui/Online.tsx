@@ -4,7 +4,7 @@ import type { Deal4 } from '../engine/deal4';
 import type { Deal2 } from '../engine/deal2';
 import type { ClientMsg, RoomView } from '../net/protocol';
 import { type RoomIntent, setRoomInUrl, useRoom } from '../net/useRoom';
-import { type Lang, type Strings, STRINGS } from './i18n';
+import { type Lang, type Strings, STRINGS, levelName } from './i18n';
 import { Table4 } from './Game4';
 import { Table2 } from './Game2';
 import { type Pacing, useTablePacing } from './useTablePacing';
@@ -39,7 +39,7 @@ export function Online({ lang, intent, onExit }: { lang: Lang; intent: RoomInten
   if (!view.started) {
     return (
       <>
-        <Lobby view={view} t={t} send={send} onExit={exit} />
+        <Lobby view={view} lang={lang} send={send} onExit={exit} />
         {banner}
         {errorToast}
       </>
@@ -152,7 +152,8 @@ function OnlineTable2({ view, lang, send, onExit }: { view: RoomView; lang: Lang
   );
 }
 
-function Lobby({ view, t, send, onExit }: { view: RoomView; t: Strings; send: Send; onExit: () => void }) {
+function Lobby({ view, lang, send, onExit }: { view: RoomView; lang: Lang; send: Send; onExit: () => void }) {
+  const t = STRINGS[lang];
   const [copied, setCopied] = useState(false);
   const link = `${location.origin}${location.pathname}?room=${view.roomId}`;
   const me = view.seats[view.mySeat];
@@ -201,7 +202,7 @@ function Lobby({ view, t, send, onExit }: { view: RoomView; t: Strings; send: Se
         ))}
       </div>
       <p className="muted">
-        {view.settings.players === 4 ? t.bazarBlot : t.blot2} · {view.settings.target} · {t[view.settings.level]}
+        {view.settings.players === 4 ? t.bazarBlot : t.blot2} · {view.settings.target} · {t.difficulty}: {levelName(lang, view.settings.level)}
       </p>
       {me.host ? (
         <button className="btn primary big" onClick={() => send({ type: 'start' })}>

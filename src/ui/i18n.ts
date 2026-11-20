@@ -56,8 +56,6 @@ const hy = {
   hundred: '100',
   carre: 'Չորս թուղթ',
   difficulty: 'Բոտերի ուժը',
-  easy: 'Հեշտ',
-  strong: 'Ուժեղ',
   online: 'Online',
   yourName: 'Ձեր անունը',
   createRoom: 'Ստեղծել սենյակ',
@@ -134,8 +132,6 @@ const ru: Strings = {
   hundred: '100',
   carre: 'Каре',
   difficulty: 'Сила ботов',
-  easy: 'Лёгкие',
-  strong: 'Сильные',
   online: 'Онлайн',
   yourName: 'Ваше имя',
   createRoom: 'Создать комнату',
@@ -210,8 +206,6 @@ const en: Strings = {
   hundred: '100',
   carre: 'Four of a kind',
   difficulty: 'Bot strength',
-  easy: 'Easy',
-  strong: 'Strong',
   online: 'Online',
   yourName: 'Your name',
   createRoom: 'Create room',
@@ -246,4 +240,12 @@ const STRAIN_NAMES: Record<Lang, Record<Strain, string>> = {
   en: { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs', NT: 'No trump' },
 };
 export const strainName = (lang: Lang, s: Strain): string => STRAIN_NAMES[lang][s];
+
+const LEVEL_NAMES: Record<Lang, string[]> = {
+  hy: ['Սկսնակ', 'Նորեկ', 'Սիրող', 'Միջին', 'Փորձառու', 'Լավ', 'Ուժեղ', 'Շատ ուժեղ', 'Փորձագետ', 'Վարպետ'],
+  ru: ['Новичок', 'Начинающий', 'Любитель', 'Средний', 'Опытный', 'Хороший', 'Сильный', 'Очень сильный', 'Эксперт', 'Мастер'],
+  en: ['Beginner', 'Novice', 'Casual', 'Average', 'Experienced', 'Good', 'Strong', 'Very strong', 'Expert', 'Master'],
+};
+/** Bot level 1–10 as "7 · Ուժեղ". */
+export const levelName = (lang: Lang, level: number): string => `${level} · ${LEVEL_NAMES[lang][level - 1]}`;
 export const isRed = (s: Strain): boolean => s === 'H' || s === 'D';

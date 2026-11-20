@@ -71,6 +71,7 @@ export function playOut(s: SimDeal): void {
             partner: s.partnerOf(seat),
             trickSize: s.n,
             attacking: s.sideOf(seat) === s.attackingSide,
+            unseen: s.hands.flatMap((h, i) => (i === seat ? [] : h)),
           });
     simStep(s, card);
   }
