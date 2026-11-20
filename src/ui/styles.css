@@ -1,0 +1,588 @@
+:root {
+  --felt: #1f6b45;
+  --felt-dark: #154d32;
+  --ink: #f4f1e8;
+  --muted: #b9cfc1;
+  --card: #fffdf7;
+  --card-ink: #1b1b1b;
+  --red: #c62828;
+  --accent: #f2b33d;
+  --warn: #ff7a59;
+  --ok: #8be28b;
+  --panel: rgba(0, 0, 0, 0.28);
+  --card-w: 62px;
+  --card-h: 90px;
+  font-family: 'Noto Sans Armenian', 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 100%) fixed;
+}
+
+button {
+  font: inherit;
+}
+
+.red {
+  color: var(--red);
+}
+.black {
+  color: var(--card-ink);
+}
+.muted {
+  color: var(--muted);
+}
+.warn-text {
+  color: var(--warn);
+}
+.ok-text {
+  color: var(--ok);
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 40px;
+}
+.btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn.primary {
+  background: var(--accent);
+  color: #2a1d00;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.btn.selected {
+  background: var(--ink);
+  color: var(--felt-dark);
+}
+.btn.small {
+  min-height: 32px;
+  padding: 2px 12px;
+}
+.btn.big {
+  font-size: 1.2rem;
+  padding: 12px 40px;
+}
+/* Suit symbols on the dark felt need light colours; on white bubbles keep card colours. */
+.strain.black {
+  color: var(--ink);
+}
+.strain.red {
+  color: #ff8a8a;
+}
+.bubble .strain.black {
+  color: var(--card-ink);
+}
+.bubble .strain.red {
+  color: var(--red);
+}
+
+/* ---------- menu ---------- */
+.menu {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 40px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  text-align: center;
+}
+.menu h1 {
+  font-size: 3rem;
+  margin: 0;
+}
+.menu h3 {
+  margin: 0 0 8px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* ---------- game layout ---------- */
+.game {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px;
+  background: var(--panel);
+  flex-wrap: wrap;
+}
+.scores {
+  display: flex;
+  gap: 14px;
+}
+.contract {
+  margin-left: auto;
+}
+
+.table {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  align-items: center;
+  justify-items: center;
+}
+.table.four {
+  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-areas:
+    '. top .'
+    'left center right'
+    '. bottom .';
+}
+.table.two {
+  grid-template-columns: 1fr;
+  grid-template-areas: 'top' 'center' 'bottom';
+}
+.seat-top {
+  grid-area: top;
+}
+.seat-left {
+  grid-area: left;
+}
+.seat-right {
+  grid-area: right;
+}
+.seat-bottom {
+  grid-area: bottom;
+}
+.center {
+  grid-area: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 230px;
+}
+
+.seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.seat-name {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.seat.active .seat-name {
+  outline: 2px solid var(--accent);
+}
+.dealer-chip,
+.taker-chip {
+  background: var(--accent);
+  color: #2a1d00;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+}
+.bubble {
+  background: var(--card);
+  color: var(--card-ink);
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bubble.contra,
+.bubble.sur {
+  background: var(--warn);
+}
+.combo-tag {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--panel);
+}
+.combo-tag.win {
+  color: var(--accent);
+}
+.combo-tag.lose {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* ---------- cards ---------- */
+.card {
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid #d8d2c0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  position: relative;
+  padding: 0;
+  flex: none;
+  font-weight: 700;
+}
+.card.red {
+  color: var(--red);
+}
+.card .corner {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  line-height: 1.05;
+  font-size: 0.95rem;
+  text-align: center;
+}
+.card .pip {
+  position: absolute;
+  right: 6px;
+  bottom: 2px;
+  font-size: 2rem;
+}
+.card.small {
+  --card-w: 52px;
+  --card-h: 76px;
+}
+.card.small .pip {
+  font-size: 1.6rem;
+}
+.card.back {
+  background: repeating-linear-gradient(45deg, #7b1f2b 0 6px, #94303d 6px 12px);
+  border: 2px solid var(--card);
+  width: 34px;
+  height: 50px;
+}
+.card.playable {
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.card.playable:hover {
+  transform: translateY(-10px);
+}
+.card.dimmed {
+  filter: brightness(0.6);
+}
+.card:disabled {
+  cursor: default;
+}
+
+.backs {
+  display: flex;
+}
+.backs .card + .card {
+  margin-left: -22px;
+}
+.backs.vertical {
+  flex-direction: column;
+}
+.backs.vertical .card + .card {
+  margin-left: 0;
+  margin-top: -38px;
+}
+
+.hand {
+  display: flex;
+  justify-content: center;
+  padding: 8px 8px 16px;
+  flex-wrap: nowrap;
+}
+.hand .card + .card {
+  margin-left: -14px;
+}
+
+.trick {
+  position: relative;
+  width: 220px;
+  height: 220px;
+}
+.trick-card {
+  position: absolute;
+}
+.trick-card.pos-bottom {
+  left: 84px;
+  bottom: 0;
+}
+.trick-card.pos-top {
+  left: 84px;
+  top: 0;
+}
+.trick-card.pos-left {
+  left: 0;
+  top: 72px;
+}
+.trick-card.pos-right {
+  right: 0;
+  top: 72px;
+}
+.table.two .trick {
+  height: 170px;
+}
+.turn-up {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.notice {
+  position: absolute;
+  background: var(--panel);
+  padding: 10px 16px;
+  border-radius: 10px;
+}
+
+/* ---------- bottom controls ---------- */
+.bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.turn-hint {
+  color: var(--accent);
+  font-weight: 600;
+}
+.panel {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  max-width: calc(100vw - 32px);
+}
+.level-row,
+.strain-row,
+.action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.level {
+  font-size: 1.4rem;
+  font-weight: 700;
+  min-width: 2ch;
+  text-align: center;
+}
+.kaput-toggle {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: 8px;
+}
+
+/* ---------- modal ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 10;
+}
+.modal {
+  background: var(--felt-dark);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 20px 24px;
+  min-width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+}
+.modal h2 {
+  margin: 0;
+}
+.big-score {
+  font-size: 2rem;
+  margin: 0;
+}
+.summary {
+  border-collapse: collapse;
+  width: 100%;
+}
+.summary td,
+.summary th {
+  padding: 4px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.summary td:first-child {
+  text-align: left;
+  color: var(--muted);
+}
+.summary tr:nth-last-child(2) td {
+  font-weight: 700;
+}
+
+/* ---------- online ---------- */
+.online-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  width: min(360px, 100%);
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--panel);
+}
+.input {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+  min-width: 0;
+}
+.input.code {
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+.join-row {
+  display: flex;
+  gap: 8px;
+}
+.share {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+}
+.share code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 10px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.lobby-teams {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+.lobby-team {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(240px, 100%);
+}
+.lobby-seat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--panel);
+}
+.lobby-seat.mine {
+  outline: 2px solid var(--accent);
+}
+.lobby-seat .dealer-chip {
+  margin-left: 6px;
+}
+.seat-note {
+  font-size: 0.75rem;
+  color: var(--warn);
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  padding: 8px 16px;
+  border-radius: 10px;
+  z-index: 20;
+  max-width: calc(100vw - 32px);
+}
+.toast.warn {
+  color: var(--warn);
+  cursor: pointer;
+}
+
+/* ---------- phones ---------- */
+@media (max-width: 640px) {
+  :root {
+    --card-w: 44px;
+    --card-h: 66px;
+  }
+  .card .corner {
+    font-size: 0.8rem;
+  }
+  .card .pip {
+    font-size: 1.3rem;
+  }
+  .card.small {
+    --card-w: 42px;
+    --card-h: 60px;
+  }
+  .hand .card + .card {
+    margin-left: -6px;
+  }
+  .table.four {
+    grid-template-columns: auto 1fr auto;
+    padding: 6px;
+  }
+  .trick {
+    width: 170px;
+    height: 180px;
+  }
+  .trick-card.pos-bottom,
+  .trick-card.pos-top {
+    left: 64px;
+  }
+  .trick-card.pos-left,
+  .trick-card.pos-right {
+    top: 60px;
+  }
+  .contract {
+    margin-left: 0;
+  }
+}

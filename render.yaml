@@ -1,0 +1,12 @@
+# Render Blueprint: one free Node web service that serves the client and the WebSocket game server.
+services:
+  - type: web
+    name: blot
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
