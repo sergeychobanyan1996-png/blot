@@ -79,6 +79,19 @@ const hy = {
   teamB: 'Թիմ 2',
   host: 'տեր',
   vsBots: 'Բոտերի դեմ',
+  yourCombos: 'Ձեր համադրությունները. ո՞րն եք հայտարարում',
+  announce: 'Հայտարարել',
+  announceNone: 'Չհայտարարել',
+  showCombos: 'Ցույց տալ',
+  showHint: 'Եթե քարտը դնեք առանց ցույց տալու, համադրությունները չեն հաշվվի',
+  blotCall: 'Բլոտ',
+  reblotCall: 'Ռեբլոտ',
+  takeTurnUp: 'Վերցնել բաց քարտը',
+  exitTitle: 'Դուրս գա՞լ խաղից',
+  exitLocal: 'Ընթացիկ խաղը կկորի։',
+  exitOnline: 'Ձեր տեղում կխաղա բոտը։ Հղումով կարող եք վերադառնալ։',
+  exitYes: 'Այո, դուրս գալ',
+  exitNo: 'Ոչ, շարունակել',
 } as const;
 
 export type Strings = Record<keyof typeof hy, string>;
@@ -155,6 +168,19 @@ const ru: Strings = {
   teamB: 'Команда 2',
   host: 'создатель',
   vsBots: 'Против ботов',
+  yourCombos: 'Ваши комбинации: что объявляете?',
+  announce: 'Объявить',
+  announceNone: 'Не объявлять',
+  showCombos: 'Показать',
+  showHint: 'Если сыграть карту, не показав, комбинации не засчитаются',
+  blotCall: 'Блот',
+  reblotCall: 'Реблот',
+  takeTurnUp: 'Взять открытую карту',
+  exitTitle: 'Выйти из игры?',
+  exitLocal: 'Текущая игра будет потеряна.',
+  exitOnline: 'Вместо вас сыграет бот. Вернуться можно по ссылке.',
+  exitYes: 'Да, выйти',
+  exitNo: 'Нет, продолжить',
 };
 
 const en: Strings = {
@@ -229,6 +255,19 @@ const en: Strings = {
   teamB: 'Team 2',
   host: 'host',
   vsBots: 'Against bots',
+  yourCombos: 'Your combinations: which do you announce?',
+  announce: 'Announce',
+  announceNone: "Don't announce",
+  showCombos: 'Show',
+  showHint: 'If you play a card without showing, the combinations will not count',
+  blotCall: 'Belote',
+  reblotCall: 'Rebelote',
+  takeTurnUp: 'Take the turned card',
+  exitTitle: 'Leave the game?',
+  exitLocal: 'The current game will be lost.',
+  exitOnline: 'A bot will play for you. You can come back with the link.',
+  exitYes: 'Yes, leave',
+  exitNo: 'No, keep playing',
 };
 
 export const STRINGS: Record<Lang, Strings> = { hy, ru, en };

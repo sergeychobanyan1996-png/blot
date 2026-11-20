@@ -1,8 +1,9 @@
-// One deal of Բազառ-Բլոտ: deal → bazar → 8 tricks → score.
+// One deal of Բազառ-Բլոտ: deal → bazar → 8 tricks (with combinations announced and shown) → score.
 
 import { type Card, makeDeck, sameCard, trumpOf } from './cards';
 import { type BazarAction, type BazarState, type Contract, applyBazar, contractOf, newBazar, teamOf4 } from './bazar';
-import { type ComboResolution, resolveCombos } from './combos';
+import type { ComboResolution } from './combos';
+import { type Declarations, type DeclareStage, announce, beforePlay, declareStage, newDeclarations, resolveDeclared, show } from './declare';
 import { type Rng, shuffle } from './rng';
 import { type Score4, type DealTally, score4 } from './scoring';
 import { type PlayedCard, type TrickRecord, legalCards, winningIndex } from './tricks';
@@ -15,6 +16,8 @@ export interface Deal4 {
   dealtHands: Card[][];
   bazar: BazarState;
   contract: Contract | null;
+  decl: Declarations | null;
+  /** Final comparison of the shown combinations; set when the deal ends. */
   combos: ComboResolution | null;
   trick: PlayedCard[];
   tricks: TrickRecord[];
@@ -38,6 +41,7 @@ export function startDeal4(dealer: number, rng: Rng): Deal4 {
     dealtHands: structuredClone(hands),
     bazar,
     contract: null,
+    decl: null,
     combos: null,
     trick: [],
     tricks: [],
@@ -55,11 +59,27 @@ export function bazar4(deal: Deal4, seat: number, action: BazarAction): Deal4 {
   if (d.bazar.phase === 'redeal') d.phase = 'redeal';
   if (d.bazar.phase === 'done') {
     d.contract = contractOf(d.bazar);
-    d.combos = resolveCombos(d.dealtHands, d.contract.bid.strain, order4(d.dealer), teamOf4, 2);
+    d.decl = newDeclarations(d.dealtHands, d.contract.bid.strain);
     d.phase = 'play';
     d.turn = (d.dealer + 1) % 4;
   }
   return d;
+}
+
+/** Whether `seat` may announce or show combinations right now (on its turn, before its card). */
+export function declareStage4(deal: Deal4, seat: number): DeclareStage {
+  if (deal.phase !== 'play' || seat !== deal.turn || !deal.decl) return null;
+  return declareStage(deal.decl, seat, deal.tricks.length);
+}
+
+export function announce4(deal: Deal4, seat: number, picks: readonly number[]): Deal4 {
+  if (deal.phase !== 'play' || seat !== deal.turn) throw new Error('Not your turn');
+  return { ...deal, decl: announce(deal.decl!, seat, picks, deal.tricks.length) };
+}
+
+export function show4(deal: Deal4, seat: number): Deal4 {
+  if (deal.phase !== 'play' || seat !== deal.turn) throw new Error('Not your turn');
+  return { ...deal, decl: show(deal.decl!, seat, deal.tricks.length) };
 }
 
 export function legalCards4(deal: Deal4, seat: number): Card[] {
@@ -74,7 +94,8 @@ export function play4(deal: Deal4, seat: number, card: Card): Deal4 {
   if (!legalCards4(deal, seat).some((c) => sameCard(c, card))) throw new Error('Illegal card');
   const d = structuredClone(deal);
   const contract = d.contract!;
-  const trump = trumpOf(contract.bid.strain);
+  const strain = contract.bid.strain;
+  d.decl = beforePlay(d.decl!, seat, d.tricks.length);
   d.hands[seat] = d.hands[seat].filter((c) => !sameCard(c, card));
   d.trick.push({ seat, card });
 
@@ -82,13 +103,13 @@ export function play4(deal: Deal4, seat: number, card: Card): Deal4 {
     d.turn = (seat + 1) % 4;
     return d;
   }
-  const winner = d.trick[winningIndex(d.trick, trump)].seat;
+  const winner = d.trick[winningIndex(d.trick, trumpOf(strain))].seat;
   d.tricks.push({ cards: d.trick, winner });
   d.trick = [];
   d.turn = winner;
   if (d.tricks.length === 8) {
-    const combos = d.combos!;
-    d.tally = { ...tallyTricks(d.tricks, contract.bid.strain, teamOf4), comboRaw: combos.comboRaw, blotRaw: combos.blotRaw };
+    d.combos = resolveDeclared(d.decl, strain, order4(d.dealer), teamOf4, 2);
+    d.tally = { ...tallyTricks(d.tricks, strain, teamOf4), comboRaw: d.combos.comboRaw, blotRaw: d.combos.blotRaw };
     d.score = score4(contract, d.tally);
     d.phase = 'done';
   }

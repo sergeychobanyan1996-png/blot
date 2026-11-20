@@ -2,7 +2,22 @@
 // swapping seats, so the luck of the deal cancels out. Checks that higher levels play better.
 
 import { describe, expect, it } from 'vitest';
-import { bazar4, mulberry32, play4, startDeal2, startDeal4, play2, trump2, teamOf4 } from '../src/engine';
+import {
+  announce2,
+  announce4,
+  bazar4,
+  declareStage2,
+  declareStage4,
+  mulberry32,
+  play2,
+  play4,
+  show2,
+  show4,
+  startDeal2,
+  startDeal4,
+  teamOf4,
+  trump2,
+} from '../src/engine';
 import { type BotLevel, botBazar4, botPlay2, botPlay4, botTrump2, toLevel } from '../src/bots';
 
 function runDeal4(seed: number, levelOfTeam: [BotLevel, BotLevel], timing: number[]): number[] {
@@ -24,6 +39,9 @@ function runDeal4(seed: number, levelOfTeam: [BotLevel, BotLevel], timing: numbe
   if (d.phase === 'redeal') return [0, 0];
   while (d.phase === 'play') {
     const seat = d.turn;
+    const stage = declareStage4(d, seat);
+    if (stage === 'announce') d = announce4(d, seat, d.decl!.detected[seat].map((_, i) => i));
+    if (stage === 'show') d = show4(d, seat);
     const dd = d;
     d = play4(d, seat, timed(seat, () => botPlay4(dd, seat, lvl(seat), rng)));
   }
@@ -34,7 +52,13 @@ function runDeal2(seed: number, levels: [BotLevel, BotLevel]): number[] {
   const rng = mulberry32(seed * 17 + 3);
   let d = startDeal2(seed % 2, mulberry32(seed));
   while (d.phase === 'trump1' || d.phase === 'trump2') d = trump2(d, d.turn, botTrump2(d, d.turn, levels[d.turn], rng));
-  while (d.phase === 'play') d = play2(d, d.turn, botPlay2(d, d.turn, levels[d.turn], rng));
+  while (d.phase === 'play') {
+    const seat = d.turn;
+    const stage = declareStage2(d, seat);
+    if (stage === 'announce') d = announce2(d, seat, d.decl!.detected[seat].map((_, i) => i));
+    if (stage === 'show') d = show2(d, seat);
+    d = play2(d, seat, botPlay2(d, seat, levels[seat], rng));
+  }
   return d.score!.points;
 }
 

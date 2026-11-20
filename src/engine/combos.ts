@@ -101,6 +101,7 @@ export interface ComboResolution {
 }
 
 /**
+ * All combinations held, as if everyone declared and showed everything (used by bot simulations).
  * @param hands dealt hands by seat
  * @param order seats in playing order starting from the player after the dealer (tie-break)
  * @param teamOf team index of a seat
@@ -112,7 +113,29 @@ export function resolveCombos(
   teamOf: (seat: number) => number,
   teamCount: number,
 ): ComboResolution {
-  const perSeat = hands.map((h) => findCombos(h, strain));
+  const blotSeat = hands.findIndex((h) => hasBlot(h, strain));
+  return compareCombos(
+    hands.map((h) => findCombos(h, strain)),
+    strain,
+    order,
+    teamOf,
+    teamCount,
+    blotSeat >= 0 ? blotSeat : null,
+  );
+}
+
+/**
+ * Compares the combinations each seat actually showed (Ա4): the side with the best one scores all of its own.
+ * Բլոտ is separate and always counts for `blotSeat`'s side.
+ */
+export function compareCombos(
+  perSeat: Combo[][],
+  strain: Strain,
+  order: readonly number[],
+  teamOf: (seat: number) => number,
+  teamCount: number,
+  blotSeat: number | null,
+): ComboResolution {
   let bestSeat: number | null = null;
   let bestKey: number[] | null = null;
   for (const seat of order) {
@@ -133,7 +156,12 @@ export function resolveCombos(
     });
   }
   const blotRaw = Array.from({ length: teamCount }, () => 0);
-  const blotSeat = hands.findIndex((h) => hasBlot(h, strain));
-  if (blotSeat >= 0) blotRaw[teamOf(blotSeat)] += BLOT_VALUE;
-  return { perSeat, bestSeat, winnerTeam, comboRaw, blotRaw, blotSeat: blotSeat >= 0 ? blotSeat : null };
+  if (blotSeat !== null) blotRaw[teamOf(blotSeat)] += BLOT_VALUE;
+  return { perSeat, bestSeat, winnerTeam, comboRaw, blotRaw, blotSeat };
+}
+
+/** Seat holding Բլոտ (trump K + Q) in the dealt hands, or null. */
+export function findBlotSeat(hands: readonly (readonly Card[])[], strain: Strain): number | null {
+  const seat = hands.findIndex((h) => hasBlot(h, strain));
+  return seat >= 0 ? seat : null;
 }

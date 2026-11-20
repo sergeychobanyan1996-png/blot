@@ -29,6 +29,8 @@ export type ClientMsg =
   | { type: 'bazar'; action: BazarAction }
   | { type: 'play'; card: Card }
   | { type: 'trump'; action: TrumpAction }
+  | { type: 'announce'; picks: number[] }
+  | { type: 'show' }
   | { type: 'continue' }
   | { type: 'rematch' };
 

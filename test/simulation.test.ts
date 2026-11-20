@@ -27,6 +27,10 @@ import {
   trumpMove2,
   trumpOptions2,
   bazarMove4,
+  announce4,
+  cardId,
+  declareStage4,
+  show4,
 } from '../src/engine';
 
 const STRAINS: Strain[] = ['S', 'H', 'D', 'C', 'NT'];
@@ -52,7 +56,7 @@ function randomBazar(d: Deal4, rng: Rng): [number, BazarAction] {
 function randomTrump(d: Deal2, rng: Rng): Parameters<typeof trump2>[2] {
   const o = trumpOptions2(d, d.turn);
   if (o.take && rng() < 0.4) return { type: 'take' };
-  if (o.name.length && (!o.pass || rng() < 0.4)) return { type: 'name', suit: pick(o.name, rng) };
+  if (o.name.length && (!o.pass || rng() < 0.4)) return { type: 'name', strain: pick(o.name, rng), takeCard: rng() < 0.5 };
   return { type: 'pass' };
 }
 
@@ -111,7 +115,73 @@ describe('2-player deals', () => {
     expect(d.phase).toBe('trump2');
     d = trump2(d, 1, { type: 'pass' });
     expect(() => trump2(d, 0, { type: 'pass' })).toThrow();
-    expect(() => trump2(d, 0, { type: 'name', suit: d.turnUp.suit })).toThrow();
+    expect(() => trump2(d, 0, { type: 'name', strain: d.turnUp.suit, takeCard: false })).toThrow();
+    expect(trumpOptions2(d, 0).name).toContain('NT');
+  });
+
+  it('round 1: taking gives the turned card, then +2 / +3', () => {
+    const d0 = startDeal2(0, mulberry32(11));
+    const d = trump2(d0, 1, { type: 'take' });
+    expect(d.hands[1].some((c) => cardId(c) === cardId(d0.turnUp))).toBe(true);
+    expect(d.hands.map((h) => h.length)).toEqual([8, 8]);
+    expect(d.stock.some((c) => cardId(c) === cardId(d0.turnUp))).toBe(false);
+    expect(d.trump).toBe(d0.turnUp.suit);
+  });
+
+  it('round 2: taking the turned card is optional, Բոյ is allowed', () => {
+    let d = startDeal2(0, mulberry32(12));
+    d = trump2(trump2(d, 1, { type: 'pass' }), 0, { type: 'pass' });
+    const without = trump2(d, 1, { type: 'name', strain: 'NT', takeCard: false });
+    expect(without.trump).toBe('NT');
+    expect(without.stock.some((c) => cardId(c) === cardId(d.turnUp))).toBe(true);
+    const withCard = trump2(d, 1, { type: 'name', strain: 'NT', takeCard: true });
+    expect(withCard.hands[1].some((c) => cardId(c) === cardId(d.turnUp))).toBe(true);
+    expect(withCard.hands.map((h) => h.length)).toEqual([8, 8]);
+    expect(withCard.stock).toHaveLength(8);
+  });
+});
+
+describe('announcing and showing combinations', () => {
+  // Seed with a known deal: find one where the first player holds a combination.
+  function dealWithCombo(): { d: Deal4; seat: number } {
+    for (let s = 1; s < 500; s++) {
+      let d = startDeal4(0, mulberry32(s));
+      d = bazar4(d, 1, { type: 'bid', bid: { level: 8, strain: 'H', kaput: false } });
+      for (const seat of [2, 3, 0, 1]) d = bazar4(d, seat, { type: 'pass' });
+      if (d.decl!.detected[1].length > 0) return { d, seat: 1 };
+    }
+    throw new Error('no deal with a combination');
+  }
+
+  it('announce before the first card, show before the second, then it scores', () => {
+    let { d, seat } = dealWithCombo();
+    expect(declareStage4(d, seat)).toBe('announce');
+    d = announce4(d, seat, [0]);
+    expect(d.decl!.announced[seat]).toHaveLength(1);
+    expect(declareStage4(d, seat)).toBeNull();
+    // Everyone plays the first trick.
+    for (let i = 0; i < 4; i++) d = play4(d, d.turn, legalCards4(d, d.turn)[0]);
+    // Play until it is our seat's turn in the second trick, then show.
+    while (d.turn !== seat) d = play4(d, d.turn, legalCards4(d, d.turn)[0]);
+    expect(declareStage4(d, seat)).toBe('show');
+    d = show4(d, seat);
+    expect(d.decl!.shown[seat]).toHaveLength(1);
+    while (d.phase === 'play') d = play4(d, d.turn, legalCards4(d, d.turn)[0]);
+    expect(d.combos!.perSeat[seat]).toHaveLength(1);
+  });
+
+  it('playing without showing loses the combination', () => {
+    let { d, seat } = dealWithCombo();
+    d = announce4(d, seat, [0]);
+    while (d.phase === 'play') d = play4(d, d.turn, legalCards4(d, d.turn)[0]);
+    expect(d.combos!.perSeat[seat]).toEqual([]);
+  });
+
+  it('playing the first card without announcing announces nothing', () => {
+    let { d, seat } = dealWithCombo();
+    d = play4(d, seat, legalCards4(d, seat)[0]);
+    expect(d.decl!.announced[seat]).toEqual([]);
+    expect(() => announce4(d, seat, [0])).toThrow();
   });
 });
 

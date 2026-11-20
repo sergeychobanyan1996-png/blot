@@ -54,7 +54,10 @@ function act(c: Client): boolean {
   if (d.turn !== seat) return false;
   if (d.phase === 'trump1' || d.phase === 'trump2') {
     const o = trumpOptions2(d, seat);
-    c.send({ type: 'trump', action: o.take ? { type: 'take' } : o.name.length ? { type: 'name', suit: o.name[0] } : { type: 'pass' } });
+    c.send({
+      type: 'trump',
+      action: o.take ? { type: 'take' } : o.name.length ? { type: 'name', strain: o.name[0], takeCard: false } : { type: 'pass' },
+    });
     return true;
   }
   if (d.phase === 'play') {

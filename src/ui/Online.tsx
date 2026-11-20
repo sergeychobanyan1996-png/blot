@@ -123,7 +123,10 @@ function OnlineTable4({ view, lang, send, onExit }: { view: RoomView; lang: Lang
       seatNote={seatNote}
       onBazar={(action) => send({ type: 'bazar', action })}
       onPlay={(card) => send({ type: 'play', card })}
+      onAnnounce={(picks) => send({ type: 'announce', picks })}
+      onShow={() => send({ type: 'show' })}
       onExit={onExit}
+      online
       endActions={endActions(view, t, send, onExit)}
       waitingNote={waitingNote(view, t)}
     />
@@ -145,7 +148,10 @@ function OnlineTable2({ view, lang, send, onExit }: { view: RoomView; lang: Lang
       seatNote={seatNote}
       onTrump={(action) => send({ type: 'trump', action })}
       onPlay={(card) => send({ type: 'play', card })}
+      onAnnounce={(picks) => send({ type: 'announce', picks })}
+      onShow={() => send({ type: 'show' })}
       onExit={onExit}
+      online
       endActions={endActions(view, t, send, onExit)}
       waitingNote={waitingNote(view, t)}
     />

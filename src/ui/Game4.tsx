@@ -1,11 +1,25 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { type Card, trumpOf } from '../engine/cards';
 import { type BazarAction, bazarOptions, teamOf4 } from '../engine/bazar';
-import { type Deal4, legalCards4 } from '../engine/deal4';
-import { type Match4, type Target, bazarMove4, newMatch4, playMove4 } from '../engine/match';
+import { type Deal4, declareStage4, legalCards4 } from '../engine/deal4';
+import { type Match4, type Target, announceMove, autoDeclare, bazarMove4, newMatch4, playMove4, showMove } from '../engine/match';
 import { type BotLevel, botBazar4, botPlay4 } from '../bots';
 import { type Lang, type Strings, STRINGS } from './i18n';
-import { ActionBubble, BazarPanel, BidLabel, CardBacks, HandView, Modal, TrickView, comboText } from './components';
+import {
+  ActionBubble,
+  Avatar,
+  BazarPanel,
+  BidLabel,
+  Bubble,
+  CardBacks,
+  DeclarePanel,
+  ExitConfirm,
+  HandView,
+  Modal,
+  SeatCombos,
+  TrickView,
+  blotCall,
+} from './components';
 import { BOT_DELAY_MS, type Pacing, useTablePacing } from './useTablePacing';
 
 const POS = ['bottom', 'left', 'top', 'right'];
@@ -20,16 +34,22 @@ export interface Table4Props {
   seatNote?: (seat: number) => string | null;
   onBazar: (a: BazarAction) => void;
   onPlay: (c: Card) => void;
+  onAnnounce: (picks: number[]) => void;
+  onShow: () => void;
   onExit: () => void;
+  /** Online games explain that a bot takes over when you leave. */
+  online?: boolean;
   /** Buttons for the match-over dialog. */
   endActions: ReactNode;
-  /** Shown in the deal result while other players are still reading it. */
+  /** Shown while other players are still reading the deal result. */
   waitingNote?: string | null;
 }
 
 /** The 4-player table, used by both the local game and online rooms. */
-export function Table4({ lang, match, mySeat, pacing, seatName, seatNote, onBazar, onPlay, onExit, endActions, waitingNote }: Table4Props) {
+export function Table4(props: Table4Props) {
+  const { lang, match, mySeat, pacing, seatName, seatNote, onBazar, onPlay, onAnnounce, onShow, onExit, online, endActions, waitingNote } = props;
   const t = STRINGS[lang];
+  const [confirmExit, setConfirmExit] = useState(false);
   const positionOf = (seat: number) => POS[(seat - mySeat + 4) % 4];
   const myTeam = teamOf4(mySeat);
   const deal: Deal4 = pacing.summary ?? match.deal;
@@ -37,56 +57,62 @@ export function Table4({ lang, match, mySeat, pacing, seatName, seatNote, onBaza
 
   const b = deal.bazar;
   const humanOptions = deal.phase === 'bazar' && !paused ? bazarOptions(b, mySeat) : null;
-  const showPanel = humanOptions && (humanOptions.pass || humanOptions.contra || humanOptions.sur);
+  const showBazar = humanOptions && (humanOptions.pass || humanOptions.contra || humanOptions.sur);
   const lastAction = (seat: number): BazarAction | undefined =>
     [...b.history].reverse().find((h) => h.seat === seat)?.action;
-  const shownTrick =
-    pacing.holding || (pacing.summary && deal.tricks.length === 8) ? deal.tricks[deal.tricks.length - 1]?.cards ?? [] : deal.trick;
-  const trump = deal.contract ? trumpOf(deal.contract.bid.strain) : null;
-  const legal = !paused ? legalCards4(match.deal, mySeat) : [];
-  const showCombos = deal.phase === 'play' && deal.tricks.length < 2 && deal.combos;
 
-  const seatBlock = (seat: number) => (
-    <div key={seat} className={`seat seat-${positionOf(seat)} ${deal.turn === seat && deal.phase !== 'done' ? 'active' : ''}`}>
-      <div className="seat-name">
-        {seatName(seat)}
-        {deal.dealer === seat && (
-          <span className="dealer-chip" title={t.dealer}>
-            D
-          </span>
-        )}
-      </div>
-      {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
-      {seat !== mySeat && <CardBacks count={deal.hands[seat].length} vertical={positionOf(seat) !== 'top'} />}
-      {deal.phase === 'bazar' && <ActionBubble action={lastAction(seat)} lang={lang} t={t} />}
-      {showCombos && deal.combos!.perSeat[seat].length > 0 && (
-        <div className={`combo-tag ${deal.combos!.winnerTeam === teamOf4(seat) ? 'win' : 'lose'}`}>
-          {deal.combos!.perSeat[seat].map((c) => comboText(c, t)).join(', ')}
+  const finished = pacing.holding || (pacing.summary !== null && deal.tricks.length === 8);
+  const lastTrick = deal.tricks[deal.tricks.length - 1];
+  const shownTrick = finished ? lastTrick?.cards ?? [] : deal.trick;
+  const collectTo = finished && lastTrick ? positionOf(lastTrick.winner) : null;
+  const trump = deal.contract ? trumpOf(deal.contract.bid.strain) : null;
+  const stage = !paused ? declareStage4(match.deal, mySeat) : null;
+  const legal = !paused ? legalCards4(match.deal, mySeat) : [];
+  const played = [...deal.tricks.flatMap((x) => x.cards), ...deal.trick];
+
+  const seatBlock = (seat: number) => {
+    const card = shownTrick.find((p) => p.seat === seat)?.card;
+    const call = blotCall(deal.decl, trump, played, seat, card, t);
+    return (
+      <div key={seat} className={`seat seat-${positionOf(seat)} ${deal.turn === seat && deal.phase !== 'done' && !finished ? 'active' : ''}`}>
+        <div className="plate">
+          <Avatar name={seatName(seat)} seat={seat} />
+          <span className="plate-name">{seatName(seat)}</span>
+          {deal.dealer === seat && (
+            <span className="dealer-chip" title={t.dealer}>
+              D
+            </span>
+          )}
         </div>
-      )}
-    </div>
-  );
+        {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
+        {seat !== mySeat && <CardBacks count={deal.hands[seat].length} vertical={positionOf(seat) !== 'top'} />}
+        {deal.phase === 'bazar' && <ActionBubble action={lastAction(seat)} lang={lang} t={t} />}
+        {call && <Bubble tone="gold">{call}</Bubble>}
+        {deal.phase === 'play' && <SeatCombos decl={deal.decl} seat={seat} mySeat={mySeat} tricksDone={deal.tricks.length} t={t} />}
+      </div>
+    );
+  };
 
   return (
     <div className="game">
       <header className="topbar">
-        <button className="btn ghost" onClick={onExit}>
+        <button className="btn ghost" onClick={() => (match.winner === null ? setConfirmExit(true) : onExit())}>
           ← {t.menu}
         </button>
         <div className="scores">
-          <span>
-            {t.us}: <b>{match.scores[myTeam]}</b>
+          <span className="score-pill us">
+            {t.us} <b>{match.scores[myTeam]}</b>
           </span>
-          <span>
-            {t.them}: <b>{match.scores[1 - myTeam]}</b>
+          <span className="score-pill them">
+            {t.them} <b>{match.scores[1 - myTeam]}</b>
           </span>
           <span className="muted">/ {match.target}</span>
         </div>
         <div className="contract">
           {deal.contract && (
             <>
-              {t.contract}: <BidLabel bid={deal.contract.bid} lang={lang} t={t} /> · {seatName(deal.contract.declarer)}
-              {deal.contract.contra > 0 && <span className="warn-text"> ×{deal.contract.contra === 1 ? t.contra : t.sur}</span>}
+              <BidLabel bid={deal.contract.bid} lang={lang} t={t} /> · {seatName(deal.contract.declarer)}
+              {deal.contract.contra > 0 && <span className="warn-text"> · {deal.contract.contra === 1 ? t.contra : t.sur}</span>}
             </>
           )}
         </div>
@@ -95,15 +121,26 @@ export function Table4({ lang, match, mySeat, pacing, seatName, seatNote, onBaza
       <div className="table four">
         {[0, 1, 2, 3].map(seatBlock)}
         <div className="center">
-          <TrickView trick={shownTrick} positionOf={positionOf} />
+          <div className="felt" />
+          <TrickView trick={shownTrick} positionOf={positionOf} collectTo={collectTo} />
           {pacing.redealNotice && <div className="notice">{t.redeal}</div>}
         </div>
       </div>
 
       <div className="bottom">
-        {showPanel && <BazarPanel key={`${b.history.length}`} options={humanOptions!} lang={lang} t={t} onAction={onBazar} />}
-        {legal.length > 0 && <div className="turn-hint">{t.yourTurn}</div>}
-        <HandView hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} />
+        {showBazar && <BazarPanel key={`${b.history.length}`} options={humanOptions!} lang={lang} t={t} onAction={onBazar} />}
+        {stage && (
+          <DeclarePanel
+            key={`${match.dealIndex}-${stage}`}
+            stage={stage}
+            combos={stage === 'announce' ? match.deal.decl!.detected[mySeat] : match.deal.decl!.announced[mySeat]!}
+            t={t}
+            onAnnounce={onAnnounce}
+            onShow={onShow}
+          />
+        )}
+        {legal.length > 0 && stage !== 'announce' && <div className="turn-hint">{t.yourTurn}</div>}
+        <HandView key={match.dealIndex} hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} locked={stage === 'announce'} />
       </div>
 
       {pacing.summary && (
@@ -126,6 +163,7 @@ export function Table4({ lang, match, mySeat, pacing, seatName, seatNote, onBaza
           {endActions}
         </Modal>
       )}
+      {confirmExit && <ExitConfirm t={t} online={online} onStay={() => setConfirmExit(false)} onLeave={onExit} />}
       {waitingNote && !pacing.summary && <div className="toast">{waitingNote}</div>}
     </div>
   );
@@ -219,7 +257,10 @@ export function Game4({ lang, target, level, onExit }: { lang: Lang; target: Tar
       }
     } else if (d.phase === 'play' && d.turn !== HUMAN) {
       const seat = d.turn;
-      move = (m) => playMove4(m, seat, botPlay4(m.deal, seat, level));
+      move = (m) => {
+        const ready = autoDeclare(m, seat);
+        return playMove4(ready, seat, botPlay4(ready.deal, seat, level));
+      };
     }
     if (!move) return undefined;
     const id = setTimeout(() => setMatch(move!), BOT_DELAY_MS);
@@ -235,6 +276,8 @@ export function Game4({ lang, target, level, onExit }: { lang: Lang; target: Tar
       seatName={seatName}
       onBazar={(a) => setMatch((m) => bazarMove4(m, HUMAN, a))}
       onPlay={(c) => setMatch((m) => playMove4(m, HUMAN, c))}
+      onAnnounce={(picks) => setMatch((m) => announceMove(m, HUMAN, picks))}
+      onShow={() => setMatch((m) => showMove(m, HUMAN))}
       onExit={onExit}
       endActions={
         <>

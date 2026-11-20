@@ -3,7 +3,8 @@
 
 import { type Card, type Strain, type Suit, cardPoints as cardValue, makeDeck, sameCard, trumpOf } from '../engine/cards';
 import { type BazarAction, type BazarState, type Contract, type ContraLevel, MAX_LEVEL, bazarOptions, teamOf4 } from '../engine/bazar';
-import { type Combo, resolveCombos } from '../engine/combos';
+import { BLOT_VALUE, compareCombos, resolveCombos } from '../engine/combos';
+import type { Declarations } from '../engine/declare';
 import { type Deal4, legalCards4, order4, partnerOf4 } from '../engine/deal4';
 import { type Deal2, type TrumpAction, legalCards2, trumpOptions2 } from '../engine/deal2';
 import { type Rng, shuffle } from '../engine/rng';
@@ -25,16 +26,34 @@ const argmax = (values: number[]): number => values.reduce((best, v, i) => (v > 
 const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length);
 const noVoids = (n: number) => Array.from({ length: n }, () => new Set<Suit>());
 
-/** Cards of the combinations shown by the comparison winner (public after the first trick). */
-function shownCards(perSeat: Combo[][], seats: number[], played: Card[]): Card[][] {
-  return perSeat.map((combos, s) => {
-    if (!seats.includes(s)) return [];
-    const out: Card[] = [];
-    for (const c of combos.flatMap((x) => x.cards)) {
-      if (!out.some((o) => sameCard(o, c)) && !played.some((p) => sameCard(p, c))) out.push(c);
-    }
-    return out;
-  });
+const unique = (cards: readonly Card[]): Card[] =>
+  cards.filter((c, i) => cards.findIndex((o) => sameCard(o, c)) === i);
+
+/**
+ * What the bot can rely on about combinations at this point: cards others have shown (still in their hands),
+ * the expected combination points (announced ones assumed to be shown) and Բլոտ once it is ours or called.
+ */
+function knownCombos(
+  decl: Declarations,
+  seat: number,
+  tricksDone: number,
+  strain: Strain,
+  order: readonly number[],
+  teamOf: (s: number) => number,
+  played: readonly PlayedCard[],
+): { fixed: Card[][]; comboRaw: number[]; blotRaw: number[] } {
+  const expected = decl.shown.map((sh, s) => (tricksDone >= 2 || sh.length ? sh : decl.announced[s] ?? []));
+  const { comboRaw } = compareCombos(expected, strain, order, teamOf, 2, null);
+  const trump = trumpOf(strain);
+  const b = decl.blotSeat;
+  const called = b !== null && played.some((p) => p.seat === b && p.card.suit === trump && (p.card.rank === 'K' || p.card.rank === 'Q'));
+  const blotRaw = [0, 0];
+  if (b !== null && (b === seat || called)) blotRaw[teamOf(b)] = BLOT_VALUE;
+  const playedCards = played.map((p) => p.card);
+  const fixed = decl.shown.map((sh, s) =>
+    s === seat ? [] : without(unique(sh.flatMap((c) => c.cards)), playedCards),
+  );
+  return { fixed, comboRaw, blotRaw };
 }
 
 // ---------------------------------------------------------------- 4 players: play
@@ -50,12 +69,11 @@ export function strongPlay4(d: Deal4, seat: number, rng: Rng, samples: number): 
   const myHand = d.hands[seat];
   const pool = without(without(makeDeck(32), myHand), played);
   const voids = inferVoids(4, [...tricks, d.trick], trump, partnerOf4);
-  const combos = d.combos!;
-  const shownSeats =
-    d.tricks.length > 0 && combos.winnerTeam !== null ? [0, 1, 2, 3].filter((s) => s !== seat && teamOf4(s) === combos.winnerTeam) : [];
-  const fixed = shownCards(combos.perSeat, shownSeats, played);
+  const { fixed, comboRaw, blotRaw } = knownCombos(d.decl!, seat, d.tricks.length, strain, order4(d.dealer), teamOf4, [
+    ...tricks.flat(),
+    ...d.trick,
+  ]);
   const counts = d.hands.map((h, s) => (s === seat ? 0 : h.length));
-  const blotRaw = knownBlot4(d, seat);
   const tally = { cardRaw: [0, 0], tricksWon: [0, 0] };
   for (const t of d.tricks) {
     const side = teamOf4(t.winner);
@@ -89,7 +107,7 @@ export function strongPlay4(d: Deal4, seat: number, rng: Rng, samples: number): 
       const s = cloneSim(base);
       simStep(s, card);
       playOut(s);
-      totals[i] += diff4(contract, s, combos.comboRaw, blotRaw, teamOf4(seat));
+      totals[i] += diff4(contract, s, comboRaw, blotRaw, teamOf4(seat));
     });
   }
   return legal[argmax(totals)];
@@ -99,17 +117,6 @@ function diff4(contract: Contract, s: SimDeal, comboRaw: number[], blotRaw: numb
   const t: DealTally = { cardRaw: s.cardRaw, tricksWon: s.tricksWon, comboRaw, blotRaw };
   const p = score4(contract, t).points;
   return p[side] - p[1 - side];
-}
-
-/** Բլոտ counts only if it is ours or already announced (both K and Q of trump played by one seat). */
-function knownBlot4(d: Deal4, seat: number): number[] {
-  const c = d.combos!;
-  if (c.blotSeat === null) return [0, 0];
-  const trump = trumpOf(d.contract!.bid.strain);
-  const playedBy = [...d.tricks.flatMap((t) => t.cards), ...d.trick].filter(
-    (p) => p.seat === c.blotSeat && p.card.suit === trump && (p.card.rank === 'K' || p.card.rank === 'Q'),
-  );
-  return c.blotSeat === seat || playedBy.length === 2 ? c.blotRaw : [0, 0];
 }
 
 // ---------------------------------------------------------------- 4 players: bazar
@@ -223,22 +230,29 @@ export function strongBazar4(b: BazarState, seat: number, hand: readonly Card[],
 
 export function strongTrump2(d: Deal2, seat: number, rng: Rng, samples: number): TrumpAction {
   const o = trumpOptions2(d, seat);
-  const suits: Suit[] = o.take ? [d.turnUp.suit] : o.name;
+  // Round 1: take the turned suit (with the card). Round 2: every other strain, with or without the card.
+  const options: { strain: Strain; takeCard: boolean }[] = o.take
+    ? [{ strain: d.turnUp.suit, takeCard: true }]
+    : o.name.flatMap((strain) => [false, true].map((takeCard) => ({ strain, takeCard })));
   const first = 1 - d.dealer;
   const pool = without(without(makeDeck(24), d.hands[seat]), [d.turnUp]);
-  const totals = suits.map(() => 0);
+  const totals = options.map(() => 0);
   for (let k = 0; k < samples; k++) {
     const rest = shuffle(pool, rng);
-    const hands: Card[][] = [[], []];
-    hands[seat] = d.hands[seat].slice();
-    hands[1 - seat] = rest.slice(0, 5);
-    hands[first].push(...rest.slice(5, 8));
-    hands[d.dealer].push(...rest.slice(8, 11));
-    suits.forEach((suit, i) => {
-      const combos = resolveCombos(hands, suit, [first, d.dealer], (s) => s, 2);
+    options.forEach(({ strain, takeCard }, i) => {
+      const hands: Card[][] = [[], []];
+      hands[seat] = [...d.hands[seat], ...(takeCard ? [d.turnUp] : [])];
+      hands[1 - seat] = rest.slice(0, 5);
+      let next = 5;
+      for (const s of [first, d.dealer]) {
+        const n = takeCard && s === seat ? 2 : 3;
+        hands[s].push(...rest.slice(next, next + n));
+        next += n;
+      }
+      const combos = resolveCombos(hands, strain, [first, d.dealer], (s) => s, 2);
       const s: SimDeal = {
         n: 2,
-        strain: suit,
+        strain,
         hands: hands.map((h) => h.slice()),
         trick: [],
         turn: first,
@@ -256,7 +270,7 @@ export function strongTrump2(d: Deal2, seat: number, rng: Rng, samples: number):
   }
   const i = argmax(totals);
   if (o.pass && totals[i] / samples < 1) return { type: 'pass' };
-  return o.take ? { type: 'take' } : { type: 'name', suit: suits[i] };
+  return o.take ? { type: 'take' } : { type: 'name', ...options[i] };
 }
 
 export function strongPlay2(d: Deal2, seat: number, rng: Rng, samples: number): Card {
@@ -267,16 +281,21 @@ export function strongPlay2(d: Deal2, seat: number, rng: Rng, samples: number): 
   const tricks = d.tricks.map((t) => t.cards);
   const played = [...tricks.flat(), ...d.trick].map((p) => p.card);
   const myHand = d.hands[seat];
-  // Unseen cards: the opponent's hand plus the undealt stock (minus the turned card, which we saw).
-  const pool = without(without(without(makeDeck(24), myHand), played), [d.turnUp]);
-  const voids = [...inferVoids(2, [...tricks, d.trick], strain, () => null), new Set<Suit>()];
-  const combos = d.combos!;
-  const shown = d.tricks.length > 0 && combos.winnerTeam === opp ? shownCards(combos.perSeat, [opp], played) : [[], []];
-  const fixed = [...shown, []];
+  const playedAll = [...tricks.flat(), ...d.trick];
+  const turnUpPlayed = played.some((c) => sameCard(c, d.turnUp));
+  // Unseen cards: the opponent's hand plus the undealt stock. The turned card is known: in the stock,
+  // or in the hand of whoever took it.
+  let pool = without(without(makeDeck(24), myHand), played);
+  if (!d.tookCard) pool = without(pool, [d.turnUp]);
+  const voids = [...inferVoids(2, [...tricks, d.trick], trumpOf(strain), () => null), new Set<Suit>()];
+  const known = knownCombos(d.decl!, seat, d.tricks.length, strain, [1 - d.dealer, d.dealer], (s) => s, playedAll);
+  const oppFixed = unique([...known.fixed[opp], ...(d.tookCard && d.taker === opp && !turnUpPlayed ? [d.turnUp] : [])]);
+  const fixed: Card[][] = [[], [], []];
+  fixed[opp] = oppFixed;
   const counts = [0, 0, 0];
   counts[opp] = d.hands[opp].length;
   counts[2] = pool.length - counts[opp];
-  const blotRaw = combos.blotSeat === seat ? combos.blotRaw : knownBlot2(d);
+  const { comboRaw, blotRaw } = known;
   const tally = { cardRaw: [0, 0], tricksWon: [0, 0] };
   for (const t of d.tricks) {
     tally.tricksWon[t.winner]++;
@@ -306,18 +325,9 @@ export function strongPlay2(d: Deal2, seat: number, rng: Rng, samples: number): 
       const s = cloneSim(base);
       simStep(s, card);
       playOut(s);
-      const p = score2(d.taker!, { cardRaw: s.cardRaw, tricksWon: s.tricksWon, comboRaw: combos.comboRaw, blotRaw }).points;
+      const p = score2(d.taker!, { cardRaw: s.cardRaw, tricksWon: s.tricksWon, comboRaw, blotRaw }).points;
       totals[i] += p[seat] - p[opp];
     });
   }
   return legal[argmax(totals)];
-}
-
-function knownBlot2(d: Deal2): number[] {
-  const c = d.combos!;
-  if (c.blotSeat === null) return [0, 0];
-  const n = [...d.tricks.flatMap((t) => t.cards), ...d.trick].filter(
-    (p) => p.seat === c.blotSeat && p.card.suit === d.trump && (p.card.rank === 'K' || p.card.rank === 'Q'),
-  ).length;
-  return n === 2 ? c.blotRaw : [0, 0];
 }

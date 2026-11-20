@@ -1,6 +1,7 @@
 export * from './cards';
 export * from './rng';
 export * from './combos';
+export * from './declare';
 export * from './tricks';
 export * from './bazar';
 export * from './scoring';

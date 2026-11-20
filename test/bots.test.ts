@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Match2, type Match4, bazarMove4, newMatch2, newMatch4, playMove2, playMove4, trumpMove2 } from '../src/engine';
+import { type Match2, type Match4, autoDeclare, bazarMove4, newMatch2, newMatch4, playMove2, playMove4, trumpMove2 } from '../src/engine';
 import { botBazar4, botPlay2, botPlay4, botTrump2 } from '../src/bots';
 
 function botMatch4(seed: number): Match4 {
@@ -13,7 +13,10 @@ function botMatch4(seed: number): Match4 {
       const action = botBazar4(b, seat, d.hands[seat]);
       expect(action).not.toBeNull();
       m = bazarMove4(m, seat, action!);
-    } else m = playMove4(m, d.turn, botPlay4(d, d.turn));
+    } else {
+      const ready = autoDeclare(m, d.turn);
+      m = playMove4(ready, d.turn, botPlay4(ready.deal, d.turn));
+    }
   }
   return m;
 }
@@ -23,7 +26,11 @@ function botMatch2(seed: number): Match2 {
   for (let steps = 0; m.winner === null; steps++) {
     if (steps > 20000) throw new Error('match did not end');
     const d = m.deal;
-    m = d.phase === 'play' ? playMove2(m, d.turn, botPlay2(d, d.turn)) : trumpMove2(m, d.turn, botTrump2(d, d.turn));
+    if (d.phase !== 'play') m = trumpMove2(m, d.turn, botTrump2(d, d.turn));
+    else {
+      const ready = autoDeclare(m, d.turn);
+      m = playMove2(ready, d.turn, botPlay2(ready.deal, d.turn));
+    }
   }
   return m;
 }

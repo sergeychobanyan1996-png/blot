@@ -2,14 +2,20 @@
 // and per-seat views that hide other players' cards. Timing is decided by the caller (hub.ts).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import type { Card } from '../src/engine/cards';
+import { type Card, type Strain, trumpOf } from '../src/engine/cards';
 import { teamOf4 } from '../src/engine/bazar';
+import type { Combo } from '../src/engine/combos';
+import type { Declarations } from '../src/engine/declare';
+import type { PlayedCard } from '../src/engine/tricks';
 import type { Deal4 } from '../src/engine/deal4';
 import type { Deal2 } from '../src/engine/deal2';
 import {
   type Match2,
   type Match4,
+  announceMove,
+  autoDeclare,
   bazarMove4,
+  showMove,
   newMatch2,
   newMatch4,
   playMove2,
@@ -139,6 +145,10 @@ export class Room {
         return this.apply((m) => (m.players === 4 ? playMove4(m, seat, msg.card) : playMove2(m, seat, msg.card)));
       case 'trump':
         return this.apply((m) => trumpMove2(this.as2(m), seat, msg.action));
+      case 'announce':
+        return this.apply((m) => announceMove(m, seat, Array.isArray(msg.picks) ? msg.picks : []));
+      case 'show':
+        return this.apply((m) => showMove(m, seat));
       default:
         throw new RoomError('bad', 'Unknown message');
     }
@@ -211,8 +221,9 @@ export class Room {
     const level = this.settings.level;
     this.apply((m) => {
       if (m.players === 2) {
-        const d = m.deal;
-        return d.phase === 'play' ? playMove2(m, seat, botPlay2(d, seat, level)) : trumpMove2(m, seat, botTrump2(d, seat, level));
+        if (m.deal.phase !== 'play') return trumpMove2(m, seat, botTrump2(m.deal, seat, level));
+        const ready = autoDeclare(m, seat);
+        return playMove2(ready, seat, botPlay2(ready.deal, seat, level));
       }
       const d = m.deal;
       if (d.phase === 'bazar') {
@@ -220,7 +231,9 @@ export class Room {
         if (!action) throw new Error(`Bot at seat ${seat} has no bazar action`);
         return bazarMove4(m, seat, action);
       }
-      return playMove4(m, seat, botPlay4(d, seat, level));
+      // A bot announces and shows everything it holds, then plays.
+      const ready = autoDeclare(m, seat);
+      return playMove4(ready, seat, botPlay4(ready.deal, seat, level));
     });
   }
 
@@ -242,19 +255,38 @@ export class Room {
   }
 }
 
-function redactDeal4(d: Deal4, seat: number): Deal4 {
-  const combos = d.combos && {
-    ...d.combos,
-    // Before the cards are shown, others' combinations are only announced, not seen.
-    perSeat: d.combos.perSeat.map((list, s) =>
-      s === seat || (d.tricks.length > 0 && teamOf4(s) === d.combos!.winnerTeam) ? list : list.map((c) => ({ ...c, cards: [] })),
-    ),
+/** An announcement says only the class ("Թերզ", "50", "Չորս թուղթ"), not which cards. */
+function classOnly(c: Combo): Combo {
+  return c.kind === 'seq' ? { ...c, suit: 'S', top: '7', cards: [] } : { ...c, rank: '7', cards: [] };
+}
+
+/**
+ * Others see what was announced (class only) and shown (cards). Who holds Բլոտ stays private until
+ * that player calls it by playing the trump K or Q.
+ */
+function redactDecl(decl: Declarations | null, seat: number, strain: Strain | null, played: PlayedCard[], done: boolean): Declarations | null {
+  if (!decl || done) return decl;
+  const trump = strain ? trumpOf(strain) : null;
+  const b = decl.blotSeat;
+  const called = b !== null && played.some((p) => p.seat === b && p.card.suit === trump && (p.card.rank === 'K' || p.card.rank === 'Q'));
+  return {
+    detected: decl.detected.map((list, s) => (s === seat ? list : [])),
+    announced: decl.announced.map((list, s) => (s === seat || !list ? list : list.map(classOnly))),
+    shown: decl.shown,
+    blotSeat: b === seat || called ? b : null,
   };
-  return { ...d, hands: d.hands.map((h, i) => (i === seat ? h : hide(h))), dealtHands: [], combos };
+}
+
+const playedIn = (d: { tricks: { cards: PlayedCard[] }[]; trick: PlayedCard[] }) => [...d.tricks.flatMap((t) => t.cards), ...d.trick];
+
+function redactDeal4(d: Deal4, seat: number): Deal4 {
+  const decl = redactDecl(d.decl, seat, d.contract?.bid.strain ?? null, playedIn(d), d.phase === 'done');
+  return { ...d, hands: d.hands.map((h, i) => (i === seat ? h : hide(h))), dealtHands: [], decl };
 }
 
 function redactDeal2(d: Deal2, seat: number): Deal2 {
-  return { ...d, hands: d.hands.map((h, i) => (i === seat ? h : hide(h))), dealtHands: [], stock: hide(d.stock) };
+  const decl = redactDecl(d.decl, seat, d.trump, playedIn(d), d.phase === 'done');
+  return { ...d, hands: d.hands.map((h, i) => (i === seat ? h : hide(h))), dealtHands: [], stock: hide(d.stock), decl };
 }
 
 function redactMatch(m: Match4 | Match2, seat: number): Match4 | Match2 {

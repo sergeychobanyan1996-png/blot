@@ -2,7 +2,7 @@
 // Levels 1–4 use fixed rules with a chance of a random (legal) move; levels 5–10 run Monte Carlo
 // playouts (see strong.ts) with more samples at each level.
 
-import { type Card, type Strain, type Suit, makeDeck } from '../engine/cards';
+import { type Card, type Strain, makeDeck } from '../engine/cards';
 import { without } from './knowledge';
 import { type BazarAction, type BazarState, MAX_LEVEL, bazarOptions, teamOf4 } from '../engine/bazar';
 import { type Deal4, legalCards4, partnerOf4 } from '../engine/deal4';
@@ -135,18 +135,21 @@ export function botTrump2(d: Deal2, seat: number, level: BotLevel = 4, rng: Rng 
     const choices: TrumpAction[] = [
       ...(o.take ? [{ type: 'take' } as const] : []),
       ...(o.pass ? [{ type: 'pass' } as const] : []),
-      ...o.name.map((suit) => ({ type: 'name', suit }) as const),
+      ...o.name.map((strain) => ({ type: 'name', strain, takeCard: rng() < 0.5 }) as const),
     ];
     return pick(choices, rng);
   }
   const mc = LEVELS[level].mc;
   if (mc) return strongTrump2(d, seat, rng, mc.trump);
   const hand = d.hands[seat];
-  if (o.take) return handStrength(hand, d.turnUp.suit) >= TAKE_THRESHOLD ? { type: 'take' } : { type: 'pass' };
-  let best: Suit = o.name[0];
-  for (const s of o.name) if (handStrength(hand, s) > handStrength(hand, best)) best = s;
-  if (o.pass && handStrength(hand, best) < TAKE_THRESHOLD) return { type: 'pass' };
-  return { type: 'name', suit: best };
+  // Taking the turned card replaces one unknown card from the stock (worth about 6 on average).
+  const withCard = (s: Strain) => handStrength([...hand, d.turnUp], s);
+  if (o.take) return withCard(d.turnUp.suit) >= TAKE_THRESHOLD + 6 ? { type: 'take' } : { type: 'pass' };
+  const value = (s: Strain) => Math.max(handStrength(hand, s), withCard(s) - 6);
+  let best: Strain = o.name[0];
+  for (const s of o.name) if (value(s) > value(best)) best = s;
+  if (o.pass && value(best) < TAKE_THRESHOLD) return { type: 'pass' };
+  return { type: 'name', strain: best, takeCard: withCard(best) - 6 > handStrength(hand, best) };
 }
 
 export function botPlay2(d: Deal2, seat: number, level: BotLevel = 4, rng: Rng = randomRng()): Card {
@@ -164,7 +167,7 @@ export function botPlay2(d: Deal2, seat: number, level: BotLevel = 4, rng: Rng =
     partner: null,
     trickSize: 2,
     attacking: seat === d.taker,
-    // The turned card stays in the undealt stock, so it is never out against us.
-    unseen: without(without(makeDeck(24), [...d.hands[seat], d.turnUp]), played),
+    // An untaken turned card stays in the undealt stock, so it is never out against us.
+    unseen: without(without(makeDeck(24), [...d.hands[seat], ...(d.tookCard ? [] : [d.turnUp])]), played),
   });
 }

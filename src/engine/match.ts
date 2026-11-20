@@ -2,8 +2,8 @@
 
 import type { Card } from './cards';
 import type { BazarAction } from './bazar';
-import { type Deal4, bazar4, play4, startDeal4 } from './deal4';
-import { type Deal2, type TrumpAction, play2, startDeal2, trump2 } from './deal2';
+import { type Deal4, announce4, bazar4, declareStage4, play4, show4, startDeal4 } from './deal4';
+import { type Deal2, type TrumpAction, announce2, declareStage2, play2, show2, startDeal2, trump2 } from './deal2';
 import { dealRng, mulberry32 } from './rng';
 import { matchWinner } from './scoring';
 
@@ -122,6 +122,28 @@ export function bazarMove4(m: Match4, seat: number, action: BazarAction): Match4
 export function playMove4(m: Match4, seat: number, card: Card): Match4 {
   if (m.winner !== null) throw new Error('Match is over');
   return settle4({ ...m, deal: play4(m.deal, seat, card) });
+}
+
+/** Announce combinations (indexes into the seat's detected list) before the first card. */
+export function announceMove<M extends Match4 | Match2>(m: M, seat: number, picks: readonly number[]): M {
+  if (m.winner !== null) throw new Error('Match is over');
+  const deal = m.players === 4 ? announce4(m.deal, seat, picks) : announce2(m.deal as Deal2, seat, picks);
+  return { ...m, deal } as M;
+}
+
+/** Show the announced combinations before the second card. */
+export function showMove<M extends Match4 | Match2>(m: M, seat: number): M {
+  if (m.winner !== null) throw new Error('Match is over');
+  const deal = m.players === 4 ? show4(m.deal, seat) : show2(m.deal as Deal2, seat);
+  return { ...m, deal } as M;
+}
+
+/** For bots: announce every combination held, and show them on the second trick. */
+export function autoDeclare<M extends Match4 | Match2>(m: M, seat: number): M {
+  const stage = m.players === 4 ? declareStage4(m.deal, seat) : declareStage2(m.deal as Deal2, seat);
+  if (stage === 'announce') return announceMove(m, seat, m.deal.decl!.detected[seat].map((_, i) => i));
+  if (stage === 'show') return showMove(m, seat);
+  return m;
 }
 
 export function trumpMove2(m: Match2, seat: number, action: TrumpAction): Match2 {
