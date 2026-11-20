@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { TARGETS } from '../src/engine/match';
+import { targetFor } from '../src/engine/match';
 import { toLevel } from '../src/bots';
 import type { ClientMsg, RoomSettings, ServerMsg } from '../src/net/protocol';
 import { Room, RoomError } from './room';
@@ -44,9 +44,10 @@ function serveStatic(distDir: string | null, req: http.IncomingMessage, res: htt
 }
 
 function cleanSettings(s: Partial<RoomSettings> | undefined): RoomSettings {
+  const players = s?.players === 2 ? 2 : 4;
   return {
-    players: s?.players === 2 ? 2 : 4,
-    target: TARGETS.includes(s?.target as never) ? (s!.target as RoomSettings['target']) : 101,
+    players,
+    target: targetFor(players, s?.target),
     level: toLevel(s?.level),
   };
 }

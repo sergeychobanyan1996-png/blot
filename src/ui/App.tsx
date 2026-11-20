@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TARGETS, type Target } from '../engine/match';
+import { TARGETS, type Target, targetFor } from '../engine/match';
 import { type BotLevel, BOT_LEVELS, DEFAULT_LEVEL, toLevel } from '../bots';
 import type { RoomIntent } from '../net/useRoom';
 import { type Lang, LANGS, STRINGS, levelName } from './i18n';
@@ -31,7 +31,16 @@ const roomFromUrl = (): string => new URLSearchParams(location.search).get('room
 export function App() {
   const [lang, setLang] = useState<Lang>(() => load('blot.lang', 'hy'));
   const [players, setPlayers] = useState<Players>(() => load('blot.players', 4));
-  const [target, setTarget] = useState<Target>(() => load('blot.target', 101));
+  // Each mode remembers its own target.
+  const [targets, setTargets] = useState<Record<Players, Target>>(() => ({
+    2: targetFor(2, load<unknown>('blot.target2', null)),
+    4: targetFor(4, load<unknown>('blot.target4', null)),
+  }));
+  const target = targets[players];
+  const setTarget = (v: Target) => {
+    setTargets((t) => ({ ...t, [players]: v }));
+    save(`blot.target${players}`, v);
+  };
   const [level, setLevel] = useState<BotLevel>(() => toLevel(load<unknown>('blot.level', DEFAULT_LEVEL)));
   const [name, setName] = useState<string>(() => load('blot.name', ''));
   const [code, setCode] = useState(roomFromUrl);
@@ -83,8 +92,8 @@ export function App() {
       <section>
         <h3>{t.target}</h3>
         <div className="seg">
-          {TARGETS.map((v) => (
-            <button key={v} className={`btn ${target === v ? 'selected' : ''}`} onClick={() => pick('blot.target', setTarget)(v)}>
+          {[...TARGETS[players]].sort((a, b) => a - b).map((v) => (
+            <button key={v} className={`btn ${target === v ? 'selected' : ''}`} onClick={() => setTarget(v)}>
               {v}
             </button>
           ))}

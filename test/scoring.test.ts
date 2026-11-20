@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { type Contract, type ContraLevel, type Strain, matchWinner, roundSmall, score2, score4 } from '../src/engine';
+import { type Contract, type ContraLevel, type Strain, matchWinner, roundSmall, score2, score4, targetFor } from '../src/engine';
+
+describe('targets per variant', () => {
+  it('2 players: 51 or 101; 4 players: 151 or 301', () => {
+    expect(targetFor(2, 51)).toBe(51);
+    expect(targetFor(2, 301)).toBe(101);
+    expect(targetFor(4, 301)).toBe(301);
+    expect(targetFor(4, 101)).toBe(151);
+    expect(targetFor(4, undefined)).toBe(151);
+  });
+});
 
 const contract = (level: number, strain: Strain = 'H', contra: ContraLevel = 0, kaput = false): Contract => ({
   declarer: 0,

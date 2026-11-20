@@ -7,8 +7,14 @@ import { type Deal2, type TrumpAction, play2, startDeal2, trump2 } from './deal2
 import { dealRng, mulberry32 } from './rng';
 import { matchWinner } from './scoring';
 
-export const TARGETS = [101, 151, 201, 301] as const;
-export type Target = (typeof TARGETS)[number];
+/** Score targets offered per variant (RULES.md Բ7, Գ6); the first is the default. */
+export const TARGETS = { 2: [101, 51], 4: [151, 301] } as const;
+export type Target = (typeof TARGETS)[2 | 4][number];
+
+export function targetFor(players: 2 | 4, wanted: unknown): Target {
+  const allowed: readonly Target[] = TARGETS[players];
+  return allowed.includes(wanted as Target) ? (wanted as Target) : allowed[0];
+}
 
 export interface DealSummary {
   dealer: number;
