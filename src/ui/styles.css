@@ -1052,3 +1052,15 @@ button {
   font-size: 0.85em;
   color: #111;
 }
+
+/* Announcement comparison after the first trick. */
+.combo-tag.win {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.combo-tag.lose {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--muted);
+  text-decoration: line-through;
+  opacity: 0.75;
+}

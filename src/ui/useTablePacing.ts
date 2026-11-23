@@ -52,3 +52,17 @@ export function useTablePacing<D>(
 
   return { summary, closeSummary: () => setSummary(null), holding, redealNotice };
 }
+
+/**
+ * Wraps a player's move: a click that is no longer legal (a double click, or a button pressed
+ * just as the state moved on) is ignored instead of breaking the game.
+ */
+export const safely =
+  <M,>(move: (m: M) => M) =>
+  (m: M): M => {
+    try {
+      return move(m);
+    } catch {
+      return m;
+    }
+  };

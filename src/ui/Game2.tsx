@@ -19,7 +19,7 @@ import {
   TrickView,
   blotCall,
 } from './components';
-import { BOT_DELAY_MS, type Pacing, useTablePacing } from './useTablePacing';
+import { BOT_DELAY_MS, type Pacing, safely, useTablePacing } from './useTablePacing';
 
 export interface Table2Props {
   lang: Lang;
@@ -305,10 +305,10 @@ export function Game2({ lang, target, level, onExit }: { lang: Lang; target: Tar
       mySeat={HUMAN}
       pacing={pacing}
       seatName={(seat) => (seat === HUMAN ? t.you : t.bot)}
-      onTrump={(a) => setMatch((m) => trumpMove2(m, HUMAN, a))}
-      onPlay={(c) => setMatch((m) => playMove2(m, HUMAN, c))}
-      onAnnounce={(picks) => setMatch((m) => announceMove(m, HUMAN, picks))}
-      onShow={() => setMatch((m) => showMove(m, HUMAN))}
+      onTrump={(a) => setMatch(safely((m) => trumpMove2(m, HUMAN, a)))}
+      onPlay={(c) => setMatch(safely((m) => playMove2(m, HUMAN, c)))}
+      onAnnounce={(picks) => setMatch(safely((m) => announceMove(m, HUMAN, picks)))}
+      onShow={() => setMatch(safely((m) => showMove(m, HUMAN)))}
       onExit={onExit}
       endActions={
         <>

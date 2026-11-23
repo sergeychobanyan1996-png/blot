@@ -1,7 +1,7 @@
 // Strong bots: Monte Carlo over hidden cards. For each candidate move, deal the unseen cards
 // many times consistently with what is known, play the rest out, and pick the best average score.
 
-import { type Card, type Strain, type Suit, cardPoints as cardValue, makeDeck, sameCard, trumpOf } from '../engine/cards';
+import { type Card, type Strain, type Suit, cardPoints as cardValue, makeDeck, rankStrength, sameCard, trumpOf } from '../engine/cards';
 import { type BazarAction, type BazarState, type Contract, type ContraLevel, MAX_LEVEL, bazarOptions, teamOf4 } from '../engine/bazar';
 import { BLOT_VALUE, compareCombos, resolveCombos } from '../engine/combos';
 import type { Declarations } from '../engine/declare';
@@ -26,6 +26,26 @@ const argmax = (values: number[]): number => values.reduce((best, v, i) => (v > 
 const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length);
 const noVoids = (n: number) => Array.from({ length: n }, () => new Set<Suit>());
 
+/**
+ * Small bonus per raw card point: when the deal's score comes out the same either way
+ * (e.g. the contract is already lost), still prefer the play that collects more cards.
+ * Kept small enough never to outweigh a real point of score.
+ */
+const CARD_POINT_TIEBREAK = 0.003;
+
+/**
+ * Drawing trumps: the side that chose trump, on lead, holding the best trump still out while
+ * others may hold trumps, plays it first.
+ */
+function drawTrump(legal: readonly Card[], trickEmpty: boolean, attacking: boolean, trump: Suit | null, unseen: readonly Card[]): Card | null {
+  if (!trickEmpty || !attacking || !trump) return null;
+  const mine = legal.filter((c) => c.suit === trump);
+  const out = unseen.filter((c) => c.suit === trump);
+  if (!mine.length || !out.length) return null;
+  const top = mine.reduce((a, b) => (rankStrength(b.rank, true) > rankStrength(a.rank, true) ? b : a));
+  return out.some((c) => rankStrength(c.rank, true) > rankStrength(top.rank, true)) ? null : top;
+}
+
 const unique = (cards: readonly Card[]): Card[] =>
   cards.filter((c, i) => cards.findIndex((o) => sameCard(o, c)) === i);
 
@@ -42,7 +62,11 @@ function knownCombos(
   teamOf: (s: number) => number,
   played: readonly PlayedCard[],
 ): { fixed: Card[][]; comboRaw: number[]; blotRaw: number[] } {
-  const expected = decl.shown.map((sh, s) => (tricksDone >= 2 || sh.length ? sh : decl.announced[s] ?? []));
+  const expected = decl.shown.map((sh, s) => {
+    if (tricksDone >= 2 || sh.length) return sh;
+    if (decl.leader !== null && decl.sides[s] !== decl.leader) return [];
+    return decl.announced[s] ?? [];
+  });
   const { comboRaw } = compareCombos(expected, strain, order, teamOf, 2, null);
   const trump = trumpOf(strain);
   const b = decl.blotSeat;
@@ -68,6 +92,8 @@ export function strongPlay4(d: Deal4, seat: number, rng: Rng, samples: number): 
   const played = [...tricks.flat(), ...d.trick].map((p) => p.card);
   const myHand = d.hands[seat];
   const pool = without(without(makeDeck(32), myHand), played);
+  const draw = drawTrump(legal, d.trick.length === 0, teamOf4(seat) === contract.team, trump, pool);
+  if (draw) return draw;
   const voids = inferVoids(4, [...tricks, d.trick], trump, partnerOf4);
   const { fixed, comboRaw, blotRaw } = knownCombos(d.decl!, seat, d.tricks.length, strain, order4(d.dealer), teamOf4, [
     ...tricks.flat(),
@@ -107,7 +133,8 @@ export function strongPlay4(d: Deal4, seat: number, rng: Rng, samples: number): 
       const s = cloneSim(base);
       simStep(s, card);
       playOut(s);
-      totals[i] += diff4(contract, s, comboRaw, blotRaw, teamOf4(seat));
+      const me = teamOf4(seat);
+      totals[i] += diff4(contract, s, comboRaw, blotRaw, me) + CARD_POINT_TIEBREAK * (s.cardRaw[me] - s.cardRaw[1 - me]);
     });
   }
   return legal[argmax(totals)];
@@ -287,6 +314,8 @@ export function strongPlay2(d: Deal2, seat: number, rng: Rng, samples: number): 
   // or in the hand of whoever took it.
   let pool = without(without(makeDeck(24), myHand), played);
   if (!d.tookCard) pool = without(pool, [d.turnUp]);
+  const draw = drawTrump(legal, d.trick.length === 0, seat === d.taker, trumpOf(strain), pool);
+  if (draw) return draw;
   const voids = [...inferVoids(2, [...tricks, d.trick], trumpOf(strain), () => null), new Set<Suit>()];
   const known = knownCombos(d.decl!, seat, d.tricks.length, strain, [1 - d.dealer, d.dealer], (s) => s, playedAll);
   const oppFixed = unique([...known.fixed[opp], ...(d.tookCard && d.taker === opp && !turnUpPlayed ? [d.turnUp] : [])]);
@@ -326,7 +355,7 @@ export function strongPlay2(d: Deal2, seat: number, rng: Rng, samples: number): 
       simStep(s, card);
       playOut(s);
       const p = score2(d.taker!, { cardRaw: s.cardRaw, tricksWon: s.tricksWon, comboRaw, blotRaw }).points;
-      totals[i] += p[seat] - p[opp];
+      totals[i] += p[seat] - p[opp] + CARD_POINT_TIEBREAK * (s.cardRaw[seat] - s.cardRaw[opp]);
     });
   }
   return legal[argmax(totals)];

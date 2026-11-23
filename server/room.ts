@@ -255,37 +255,51 @@ export class Room {
   }
 }
 
-/** An announcement says only the class ("Թերզ", "50", "Չորս թուղթ"), not which cards. */
-function classOnly(c: Combo): Combo {
-  return c.kind === 'seq' ? { ...c, suit: 'S', top: '7', cards: [] } : { ...c, rank: '7', cards: [] };
+/**
+ * An announcement says only the class ("Թերզ", "50", "Չորս թուղթ"). Once announcements are compared
+ * after the first trick, the «բոյ» (top card) is known too — never the suit or the cards.
+ */
+function classOnly(c: Combo, compared: boolean): Combo {
+  if (c.kind === 'seq') return { ...c, suit: 'S', top: compared ? c.top : '7', cards: [] };
+  return { ...c, rank: compared ? c.rank : '7', cards: [] };
 }
 
 /**
  * Others see what was announced (class only) and shown (cards). Who holds Բլոտ stays private until
  * that player calls it by playing the trump K or Q.
  */
-function redactDecl(decl: Declarations | null, seat: number, strain: Strain | null, played: PlayedCard[], done: boolean): Declarations | null {
+function redactDecl(
+  decl: Declarations | null,
+  seat: number,
+  strain: Strain | null,
+  played: PlayedCard[],
+  tricksDone: number,
+  done: boolean,
+): Declarations | null {
   if (!decl || done) return decl;
+  const compared = tricksDone >= 1;
   const trump = strain ? trumpOf(strain) : null;
   const b = decl.blotSeat;
   const called = b !== null && played.some((p) => p.seat === b && p.card.suit === trump && (p.card.rank === 'K' || p.card.rank === 'Q'));
   return {
     detected: decl.detected.map((list, s) => (s === seat ? list : [])),
-    announced: decl.announced.map((list, s) => (s === seat || !list ? list : list.map(classOnly))),
+    announced: decl.announced.map((list, s) => (s === seat || !list ? list : list.map((c) => classOnly(c, compared)))),
     shown: decl.shown,
     blotSeat: b === seat || called ? b : null,
+    sides: decl.sides,
+    leader: decl.leader,
   };
 }
 
 const playedIn = (d: { tricks: { cards: PlayedCard[] }[]; trick: PlayedCard[] }) => [...d.tricks.flatMap((t) => t.cards), ...d.trick];
 
 function redactDeal4(d: Deal4, seat: number): Deal4 {
-  const decl = redactDecl(d.decl, seat, d.contract?.bid.strain ?? null, playedIn(d), d.phase === 'done');
+  const decl = redactDecl(d.decl, seat, d.contract?.bid.strain ?? null, playedIn(d), d.tricks.length, d.phase === 'done');
   return { ...d, hands: d.hands.map((h, i) => (i === seat ? h : hide(h))), dealtHands: [], decl };
 }
 
 function redactDeal2(d: Deal2, seat: number): Deal2 {
-  const decl = redactDecl(d.decl, seat, d.trump, playedIn(d), d.phase === 'done');
+  const decl = redactDecl(d.decl, seat, d.trump, playedIn(d), d.tricks.length, d.phase === 'done');
   return { ...d, hands: d.hands.map((h, i) => (i === seat ? h : hide(h))), dealtHands: [], stock: hide(d.stock), decl };
 }
 

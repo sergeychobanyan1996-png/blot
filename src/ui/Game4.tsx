@@ -21,7 +21,7 @@ import {
   TrickView,
   blotCall,
 } from './components';
-import { BOT_DELAY_MS, type Pacing, useTablePacing } from './useTablePacing';
+import { BOT_DELAY_MS, type Pacing, safely, useTablePacing } from './useTablePacing';
 
 const POS = ['bottom', 'left', 'top', 'right'];
 
@@ -298,10 +298,10 @@ export function Game4({ lang, target, level, onExit }: { lang: Lang; target: Tar
       mySeat={HUMAN}
       pacing={pacing}
       seatName={seatName}
-      onBazar={(a) => setMatch((m) => bazarMove4(m, HUMAN, a))}
-      onPlay={(c) => setMatch((m) => playMove4(m, HUMAN, c))}
-      onAnnounce={(picks) => setMatch((m) => announceMove(m, HUMAN, picks))}
-      onShow={() => setMatch((m) => showMove(m, HUMAN))}
+      onBazar={(a) => setMatch(safely((m) => bazarMove4(m, HUMAN, a)))}
+      onPlay={(c) => setMatch(safely((m) => playMove4(m, HUMAN, c)))}
+      onAnnounce={(picks) => setMatch(safely((m) => announceMove(m, HUMAN, picks)))}
+      onShow={() => setMatch(safely((m) => showMove(m, HUMAN)))}
       onExit={onExit}
       endActions={
         <>

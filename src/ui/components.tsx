@@ -428,8 +428,23 @@ export function SeatCombos({ decl, seat, mySeat, tricksDone, t }: { decl: Declar
   }
   const announced = decl.announced[seat];
   if (!announced?.length || tricksDone > 1) return null;
-  const text = announced.map((c) => (seat === mySeat ? comboText(c, t) : comboClass(c, t))).join(' · ');
-  return <div className="combo-tag">{text}</div>;
+  // After the first trick the announcements are compared: «բոյ» (top card) decides equal classes.
+  const compared = tricksDone >= 1 && decl.leader !== null;
+  const wins = compared && decl.sides[seat] === decl.leader;
+  const text = announced
+    .map((c) => (seat === mySeat ? comboText(c, t) : compared ? comboWithBoy(c, t) : comboClass(c, t)))
+    .join(' · ');
+  return (
+    <div className={`combo-tag ${compared ? (wins ? 'win' : 'lose') : ''}`}>
+      {compared && (wins ? '✓ ' : '✗ ')}
+      {text}
+    </div>
+  );
+}
+
+/** Class plus «բոյ» (top card), as answered when both sides announce: "Թերզ · բոյ K". */
+function comboWithBoy(c: Combo, t: Strings): string {
+  return c.kind === 'carre' ? `${t.carre} ${c.rank}` : `${comboClass(c, t)} · ${t.boy} ${c.top}`;
 }
 
 /** «Բլոտ» / «Ռեբլոտ» when the holder plays the trump K or Q. */

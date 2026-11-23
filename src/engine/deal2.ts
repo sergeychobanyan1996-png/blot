@@ -4,7 +4,17 @@
 
 import { type Card, type Strain, type Suit, makeDeck, sameCard, trumpOf } from './cards';
 import type { ComboResolution } from './combos';
-import { type Declarations, type DeclareStage, announce, beforePlay, declareStage, newDeclarations, resolveDeclared, show } from './declare';
+import {
+  type Declarations,
+  type DeclareStage,
+  announce,
+  beforePlay,
+  declareStage,
+  newDeclarations,
+  resolveDeclared,
+  settleAnnouncements,
+  show,
+} from './declare';
 import { type Rng, shuffle } from './rng';
 import { type DealTally, type Score2, score2 } from './scoring';
 import { type PlayedCard, type TrickRecord, legalCards, winningIndex } from './tricks';
@@ -94,7 +104,7 @@ function chooseTrump(d: Deal2, seat: number, strain: Strain, takeCard: boolean):
   }
   d.stock = takeCard ? d.stock.slice(next) : [d.turnUp, ...d.stock.slice(next)];
   d.dealtHands = structuredClone(d.hands);
-  d.decl = newDeclarations(d.dealtHands, strain);
+  d.decl = newDeclarations(d.dealtHands, strain, [0, 1]);
   d.phase = 'play';
   d.turn = first;
 }
@@ -153,6 +163,7 @@ export function play2(deal: Deal2, seat: number, card: Card): Deal2 {
   d.tricks.push({ cards: d.trick, winner });
   d.trick = [];
   d.turn = winner;
+  if (d.tricks.length === 1) d.decl = settleAnnouncements(d.decl, d.trump!, [other(d.dealer), d.dealer]);
   if (d.tricks.length === 8) {
     d.combos = resolveDeclared(d.decl, d.trump!, [other(d.dealer), d.dealer], self, 2);
     d.tally = { ...tallyTricks(d.tricks, d.trump!, self), comboRaw: d.combos.comboRaw, blotRaw: d.combos.blotRaw };

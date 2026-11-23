@@ -3,7 +3,17 @@
 import { type Card, makeDeck, sameCard, trumpOf } from './cards';
 import { type BazarAction, type BazarState, type Contract, applyBazar, contractOf, newBazar, teamOf4 } from './bazar';
 import type { ComboResolution } from './combos';
-import { type Declarations, type DeclareStage, announce, beforePlay, declareStage, newDeclarations, resolveDeclared, show } from './declare';
+import {
+  type Declarations,
+  type DeclareStage,
+  announce,
+  beforePlay,
+  declareStage,
+  newDeclarations,
+  resolveDeclared,
+  settleAnnouncements,
+  show,
+} from './declare';
 import { type Rng, shuffle } from './rng';
 import { type Score4, type DealTally, score4 } from './scoring';
 import { type PlayedCard, type TrickRecord, legalCards, winningIndex } from './tricks';
@@ -59,7 +69,7 @@ export function bazar4(deal: Deal4, seat: number, action: BazarAction): Deal4 {
   if (d.bazar.phase === 'redeal') d.phase = 'redeal';
   if (d.bazar.phase === 'done') {
     d.contract = contractOf(d.bazar);
-    d.decl = newDeclarations(d.dealtHands, d.contract.bid.strain);
+    d.decl = newDeclarations(d.dealtHands, d.contract.bid.strain, [0, 1, 0, 1]);
     d.phase = 'play';
     d.turn = (d.dealer + 1) % 4;
   }
@@ -107,6 +117,7 @@ export function play4(deal: Deal4, seat: number, card: Card): Deal4 {
   d.tricks.push({ cards: d.trick, winner });
   d.trick = [];
   d.turn = winner;
+  if (d.tricks.length === 1) d.decl = settleAnnouncements(d.decl, strain, order4(d.dealer));
   if (d.tricks.length === 8) {
     d.combos = resolveDeclared(d.decl, strain, order4(d.dealer), teamOf4, 2);
     d.tally = { ...tallyTricks(d.tricks, strain, teamOf4), comboRaw: d.combos.comboRaw, blotRaw: d.combos.blotRaw };

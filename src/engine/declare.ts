@@ -1,6 +1,7 @@
 // Announcing and showing combinations — RULES.md Ա5.
-// Before their first card a player announces any of their combinations; before their second card
-// they show what they announced. Only shown combinations take part in the comparison (Ա4);
+// Before their first card a player announces any of their combinations. After the first trick the
+// announcements are compared (class, then «բոյ» — the top card — then trump, then order), and only the
+// side whose announcement is best may show, before its second card. Only shown combinations score (Ա4);
 // a player who plays the second card without showing loses them. Բլոտ is called while playing.
 
 import type { Card, Strain } from './cards';
@@ -14,23 +15,38 @@ export interface Declarations {
   shown: Combo[][];
   /** Holder of trump K + Q (private until those cards are played). */
   blotSeat: number | null;
+  /** Side (team, or seat in 2 players) of each seat. */
+  sides: number[];
+  /** Side whose announcement is best, decided after the first trick; null if nobody announced. */
+  leader: number | null;
 }
 
 export type DeclareStage = 'announce' | 'show' | null;
 
-export function newDeclarations(hands: readonly (readonly Card[])[], strain: Strain): Declarations {
+export function newDeclarations(hands: readonly (readonly Card[])[], strain: Strain, sides: readonly number[]): Declarations {
   return {
     detected: hands.map((h) => findCombos(h, strain)),
     announced: hands.map(() => null),
     shown: hands.map(() => []),
     blotSeat: findBlotSeat(hands, strain),
+    sides: sides.slice(),
+    leader: null,
   };
+}
+
+/** After the first trick: whose announcement goes through (the «բոյ» question). */
+export function settleAnnouncements(d: Declarations, strain: Strain, order: readonly number[]): Declarations {
+  const announced = d.announced.map((a) => a ?? []);
+  const { winnerTeam } = compareCombos(announced, strain, order, (s) => d.sides[s], 2, null);
+  return { ...d, leader: winnerTeam };
 }
 
 /** What `seat` may do with its combinations before playing its card now. */
 export function declareStage(d: Declarations, seat: number, tricksDone: number): DeclareStage {
   if (tricksDone === 0 && d.announced[seat] === null && d.detected[seat].length > 0) return 'announce';
-  if (tricksDone === 1 && (d.announced[seat]?.length ?? 0) > 0 && d.shown[seat].length === 0) return 'show';
+  if (tricksDone === 1 && (d.announced[seat]?.length ?? 0) > 0 && d.shown[seat].length === 0 && d.leader === d.sides[seat]) {
+    return 'show';
+  }
   return null;
 }
 
