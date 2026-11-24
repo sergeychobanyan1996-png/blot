@@ -17,8 +17,8 @@
   --ok: #8be28b;
   --panel: rgba(8, 18, 13, 0.62);
   --panel-line: rgba(255, 255, 255, 0.12);
-  --cw: clamp(48px, 8.6vh, 78px); /* card width; scales with the screen height; everything on a card scales from it */
-  --cw-small: clamp(40px, 7.2vh, 64px);
+  --cw: clamp(58px, 11vh, 104px); /* card width; scales with the screen height; everything on a card scales from it */
+  --cw-small: clamp(50px, 9.2vh, 88px);
   font-family: 'Noto Sans Armenian', 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -453,11 +453,11 @@ button {
   width: 24%;
 }
 .card .corner .rank {
-  font-size: calc(var(--cw) * 0.34);
+  font-size: calc(var(--cw) * 0.36);
   letter-spacing: -0.06em;
 }
 .card .corner .suit {
-  font-size: calc(var(--cw) * 0.27);
+  font-size: calc(var(--cw) * 0.3);
   margin-top: 4%;
 }
 .card .corner.tl {
@@ -557,7 +557,7 @@ button {
   display: flex;
   justify-content: center;
   padding: 22px 8px 14px;
-  height: calc(var(--cw) * 1.45 + 36px);
+  height: calc(var(--cw) * 1.45 + 54px);
   flex: none;
   flex-wrap: nowrap;
 }
@@ -603,8 +603,8 @@ button {
 /* Trick: cards fly in from their player, then the finished trick slides to the winner. */
 .trick {
   position: relative;
-  width: 240px;
-  height: 230px;
+  width: calc(var(--cw-small) * 4.2);
+  height: calc(var(--cw-small) * 3.4);
 }
 .trick-card {
   position: absolute;
@@ -618,19 +618,19 @@ button {
   animation: fly-in 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
 }
 .trick-card.pos-bottom {
-  --y: 46px;
+  --y: calc(var(--cw-small) * 0.75);
   --fy: 280px;
 }
 .trick-card.pos-top {
-  --y: -46px;
+  --y: calc(var(--cw-small) * -0.75);
   --fy: -280px;
 }
 .trick-card.pos-left {
-  --x: -60px;
+  --x: calc(var(--cw-small) * -1);
   --fx: -320px;
 }
 .trick-card.pos-right {
-  --x: 60px;
+  --x: calc(var(--cw-small) * 1);
   --fx: 320px;
 }
 @keyframes fly-in {
@@ -679,7 +679,7 @@ button {
   }
 }
 .table.two .trick {
-  height: 200px;
+  height: calc(var(--cw-small) * 3);
 }
 .turn-up {
   position: relative;
@@ -719,7 +719,7 @@ button {
 }
 /* Room for the bazar / trump / combination panels, so they never push the table around. */
 .controls {
-  height: 158px;
+  height: 140px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -958,10 +958,8 @@ button {
 /* ---------- phones ---------- */
 @media (max-width: 640px) {
   :root {
-    --cw: 46px;
-  }
-  .card.small {
-    --cw: 44px;
+    --cw: clamp(46px, 12.5vw, 60px);
+    --cw-small: clamp(42px, 11vw, 52px);
   }
   .card.in-hand {
     margin-left: calc(var(--cw) * -0.18);
@@ -987,22 +985,6 @@ button {
     top: 100%;
     transform: translateX(-50%);
     margin: 4px 0 0;
-  }
-  .trick {
-    width: 180px;
-    height: 190px;
-  }
-  .trick-card.pos-bottom {
-    --y: 36px;
-  }
-  .trick-card.pos-top {
-    --y: -36px;
-  }
-  .trick-card.pos-left {
-    --x: -44px;
-  }
-  .trick-card.pos-right {
-    --x: 44px;
   }
   .plate {
     padding-right: 8px;
@@ -1063,4 +1045,21 @@ button {
   color: var(--muted);
   text-decoration: line-through;
   opacity: 0.75;
+}
+
+/* Drawn suit signs size with the surrounding text. */
+.suit-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+.suit-chip .suit-icon {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+.waiting-players {
+  color: var(--gold);
+  font-weight: 600;
+  margin: 0;
 }

@@ -24,13 +24,45 @@ const PIPS: Partial<Record<Rank, [number, number, boolean][]>> = {
   '10': [[30, 20, false], [70, 20, false], [50, 30, false], [30, 40, false], [70, 40, false], [30, 60, true], [70, 60, true], [50, 70, true], [30, 80, true], [70, 80, true]],
 };
 
+/** Suit shapes drawn in a 100×100 box, so they look the same on every computer and at any size. */
+function SuitShape({ suit }: { suit: Suit }) {
+  switch (suit) {
+    case 'H':
+      return <path d="M50 92 C22 70 4 52 4 31 C4 14 16 4 30 4 C40 4 47 10 50 19 C53 10 60 4 70 4 C84 4 96 14 96 31 C96 52 78 70 50 92 Z" />;
+    case 'D':
+      return <path d="M50 2 L88 50 L50 98 L12 50 Z" />;
+    case 'S':
+      return (
+        <path d="M50 3 C38 24 4 40 4 63 C4 78 15 88 29 88 C38 88 44 84 47 78 C46 88 41 93 32 97 L68 97 C59 93 54 88 53 78 C56 84 62 88 71 88 C85 88 96 78 96 63 C96 40 62 24 50 3 Z" />
+      );
+    case 'C':
+      return (
+        <>
+          <circle cx="50" cy="27" r="22" />
+          <circle cx="25" cy="60" r="22" />
+          <circle cx="75" cy="60" r="22" />
+          <path d="M42 50 L58 50 L56 70 C57 84 62 92 70 97 L30 97 C38 92 43 84 44 70 Z" />
+        </>
+      );
+  }
+}
+
+/** A suit sign in the current text colour (red or black comes from the card or chip). */
+export function SuitIcon({ suit, className }: { suit: Suit; className?: string }) {
+  return (
+    <svg className={`suit-icon ${className ?? ''}`} viewBox="0 0 100 100" fill="currentColor" aria-hidden="true">
+      <SuitShape suit={suit} />
+    </svg>
+  );
+}
+
 const INK = '#111';
 const GOLD = '#e8b21e';
 const BLUE = '#1f4e9c';
 const SKIN = '#f6d8b8';
 
 /** One half of a double-headed court figure (drawn twice, the second turned upside down). */
-function CourtHalf({ rank, red, sym }: { rank: 'J' | 'Q' | 'K'; red: boolean; sym: string }) {
+function CourtHalf({ rank, red, suit }: { rank: 'J' | 'Q' | 'K'; red: boolean; suit: Suit }) {
   const accent = red ? '#d0121b' : INK;
   return (
     <g strokeWidth={1.2} stroke={INK} strokeLinejoin="round">
@@ -56,9 +88,9 @@ function CourtHalf({ rank, red, sym }: { rank: 'J' | 'Q' | 'K'; red: boolean; sy
       {rank === 'Q' && <circle cx="24" cy="40" r="4" fill={accent} />}
       {rank === 'Q' && <path d="M24 44 L26 60" fill="none" />}
       {rank === 'J' && <path d="M20 10 L22 60 M16 14 Q20 6 24 14" fill="none" strokeWidth={2} />}
-      <text x="10" y="18" fontSize="13" fill={accent} stroke="none" fontFamily="Arial">
-        {sym}
-      </text>
+      <g transform="translate(5 5) scale(0.15)" fill={accent} stroke="none">
+        <SuitShape suit={suit} />
+      </g>
     </g>
   );
 }
@@ -66,12 +98,11 @@ function CourtHalf({ rank, red, sym }: { rank: 'J' | 'Q' | 'K'; red: boolean; sy
 function CourtArt({ card }: { card: Card }) {
   const rank = card.rank as 'J' | 'Q' | 'K';
   const red = isRed(card.suit);
-  const sym = SUIT_SYMBOL[card.suit];
   return (
     <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <CourtHalf rank={rank} red={red} sym={sym} />
+      <CourtHalf rank={rank} red={red} suit={card.suit} />
       <g transform="rotate(180 50 70)">
-        <CourtHalf rank={rank} red={red} sym={sym} />
+        <CourtHalf rank={rank} red={red} suit={card.suit} />
       </g>
       <path d="M0 70 H100" stroke={INK} strokeWidth={1} />
     </svg>
@@ -79,7 +110,7 @@ function CourtArt({ card }: { card: Card }) {
 }
 
 function CardFace({ card }: { card: Card }) {
-  const sym = SUIT_SYMBOL[card.suit];
+  const sym = <SuitIcon suit={card.suit} />;
   const pips = PIPS[card.rank];
   const face = card.rank === 'J' || card.rank === 'Q' || card.rank === 'K';
   return (
@@ -236,7 +267,7 @@ export function StrainLabel({ strain, lang }: { strain: Strain; lang: Lang }) {
   if (strain === 'NT') return <span className="suit-chip nt">{strainName(lang, 'NT')}</span>;
   return (
     <span className={`suit-chip ${isRed(strain) ? 'red' : 'black'}`} title={strainName(lang, strain)} aria-label={strainName(lang, strain)}>
-      {SUIT_SYMBOL[strain]}
+      <SuitIcon suit={strain} />
     </span>
   );
 }

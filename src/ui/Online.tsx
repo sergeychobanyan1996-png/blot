@@ -4,7 +4,8 @@ import type { Deal4 } from '../engine/deal4';
 import type { Deal2 } from '../engine/deal2';
 import type { ClientMsg, RoomView } from '../net/protocol';
 import { type RoomIntent, setRoomInUrl, useRoom } from '../net/useRoom';
-import { type Lang, type Strings, STRINGS, levelName } from './i18n';
+import { type Lang, type Strings, STRINGS, fill, levelName } from './i18n';
+import { Modal } from './components';
 import { Table4 } from './Game4';
 import { Table2 } from './Game2';
 import { type Pacing, useTablePacing } from './useTablePacing';
@@ -163,6 +164,9 @@ function Lobby({ view, lang, send, onExit }: { view: RoomView; lang: Lang; send:
   const [copied, setCopied] = useState(false);
   const link = `${location.origin}${location.pathname}?room=${view.roomId}`;
   const me = view.seats[view.mySeat];
+  const empty = view.seats.filter((s) => !s.name).length;
+  const [confirmBots, setConfirmBots] = useState(false);
+  const start = () => (empty > 0 ? setConfirmBots(true) : send({ type: 'start' }));
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(link);
@@ -210,12 +214,33 @@ function Lobby({ view, lang, send, onExit }: { view: RoomView; lang: Lang; send:
       <p className="muted">
         {view.settings.players === 4 ? t.bazarBlot : t.blot2} · {view.settings.target} · {t.difficulty}: {levelName(lang, view.settings.level)}
       </p>
+      {empty > 0 && <p className="waiting-players">{fill(t.waitingPlayers, { n: empty })}</p>}
       {me.host ? (
-        <button className="btn primary big" onClick={() => send({ type: 'start' })}>
+        <button className="btn primary big" onClick={start}>
           {t.startGame}
         </button>
       ) : (
         <p>{t.waitingHost}</p>
+      )}
+      {confirmBots && (
+        <Modal>
+          <h2>{t.emptySeatsTitle}</h2>
+          <p className="muted">{fill(t.emptySeatsText, { n: empty })}</p>
+          <div className="action-row">
+            <button className="btn primary" onClick={() => setConfirmBots(false)}>
+              {t.waitFriends}
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                setConfirmBots(false);
+                send({ type: 'start' });
+              }}
+            >
+              {t.startWithBots}
+            </button>
+          </div>
+        </Modal>
       )}
       <button className="btn ghost" onClick={onExit}>
         ← {t.menu}
