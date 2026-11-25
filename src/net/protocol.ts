@@ -12,6 +12,8 @@ export interface RoomSettings {
   players: Players;
   target: Target;
   level: BotLevel;
+  /** 4 players, optional: team names by team index (team 0 = seats 0 and 2). */
+  teamNames?: [string, string];
 }
 
 export interface SeatInfo {
@@ -19,6 +21,10 @@ export interface SeatInfo {
   bot: boolean;
   connected: boolean;
   host: boolean;
+  /** A bot is playing this seat for a player who left; they get it back when they return. */
+  takenOver: boolean;
+  /** Time left (ms, when the view was sent) before a bot takes the seat of a player who left. */
+  awayMs: number | null;
 }
 
 export type ClientMsg =
@@ -44,6 +50,8 @@ export interface RoomView {
   match: Match4 | Match2 | null;
   /** Seats whose players have not yet closed the deal result. */
   waitingFor: number[];
+  /** Set by the client: when this view arrived (to count down `awayMs`). */
+  receivedAt?: number;
 }
 
 export type ServerMsg =

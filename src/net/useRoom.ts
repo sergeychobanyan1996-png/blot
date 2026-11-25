@@ -9,18 +9,18 @@ export type RoomIntent =
 
 export type ConnStatus = 'connecting' | 'open' | 'closed';
 
-// Per tab (sessionStorage): a reload keeps your seat, while two tabs are two different players.
+// Kept in localStorage so a player who closed the tab can come back to the same seat.
 const tokenKey = (roomId: string) => `blot.token.${roomId}`;
 const readToken = (roomId: string): string | undefined => {
   try {
-    return sessionStorage.getItem(tokenKey(roomId)) ?? undefined;
+    return localStorage.getItem(tokenKey(roomId)) ?? undefined;
   } catch {
     return undefined;
   }
 };
 const saveToken = (roomId: string, token: string) => {
   try {
-    sessionStorage.setItem(tokenKey(roomId), token);
+    localStorage.setItem(tokenKey(roomId), token);
   } catch {
     /* storage unavailable: reconnect only works while the tab stays open */
   }
@@ -65,7 +65,7 @@ export function useRoom(intent: RoomIntent) {
           saveToken(msg.roomId, msg.token);
           setRoomInUrl(msg.roomId);
           setError(null);
-        } else if (msg.type === 'room') setView(msg.view);
+        } else if (msg.type === 'room') setView({ ...msg.view, receivedAt: Date.now() });
         else {
           setError(msg);
           // Could not get into the room at all: stop retrying.

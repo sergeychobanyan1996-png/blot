@@ -1063,3 +1063,36 @@ button {
   font-weight: 600;
   margin: 0;
 }
+
+/* Score history: the score bar is a button that opens it. */
+button.scores {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+button.scores:hover .score-pill {
+  background: rgba(255, 255, 255, 0.16);
+}
+.history-scroll {
+  max-height: 60vh;
+  overflow: auto;
+  width: 100%;
+}
+.summary.history td,
+.summary.history th {
+  white-space: nowrap;
+  text-align: center;
+}
+.summary.history .history-contract {
+  text-align: left;
+}
+
+.team-names {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, 100%);
+}

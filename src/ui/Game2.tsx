@@ -11,6 +11,7 @@ import {
   CardView,
   DeclarePanel,
   ExitConfirm,
+  ScoreHistory,
   FullscreenButton,
   HandView,
   Modal,
@@ -79,6 +80,7 @@ export function Table2(props: Table2Props) {
   const { lang, match, mySeat, pacing, seatName, seatNote, onTrump, onPlay, onAnnounce, onShow, onExit, online, endActions, waitingNote } = props;
   const t = STRINGS[lang];
   const [confirmExit, setConfirmExit] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const opp = 1 - mySeat;
   const positionOf = (seat: number) => (seat === mySeat ? 'bottom' : 'top');
   const deal: Deal2 = pacing.summary ?? match.deal;
@@ -128,7 +130,7 @@ export function Table2(props: Table2Props) {
         <button className="btn ghost" onClick={() => (match.winner === null ? setConfirmExit(true) : onExit())}>
           ← {t.menu}
         </button>
-        <div className="scores">
+        <button className="scores" onClick={() => setShowHistory(true)} title={t.history}>
           <span className="score-pill us">
             {seatName(mySeat)} <b>{match.scores[mySeat]}</b>
           </span>
@@ -136,7 +138,7 @@ export function Table2(props: Table2Props) {
             {seatName(opp)} <b>{match.scores[opp]}</b>
           </span>
           <span className="muted">/ {match.target}</span>
-        </div>
+        </button>
         <div className="contract">
           {deal.trump && (
             <>
@@ -202,6 +204,17 @@ export function Table2(props: Table2Props) {
           {endActions}
         </Modal>
       )}
+      {showHistory && (
+        <ScoreHistory
+          history={match.history}
+          mine={mySeat}
+          labels={[seatName(mySeat), seatName(opp)]}
+          seatName={seatName}
+          lang={lang}
+          t={t}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
       {confirmExit && <ExitConfirm t={t} online={online} onStay={() => setConfirmExit(false)} onLeave={onExit} />}
       {waitingNote && !pacing.summary && <div className="toast">{waitingNote}</div>}
     </div>
@@ -245,7 +258,7 @@ function DealSummary2({
       </p>
       <div className={`result-banner ${s.made ? 'ok' : 'bad'}`}>
         <span className="result-icon">{s.made ? '✓' : '✗'}</span>
-        {s.made ? t.madeLong : t.failedLong}
+        {T === mySeat ? (s.made ? t.youMade : t.youFailed) : `${seatName(T)} ${s.made ? t.madeVerb : t.failedVerb}`}
       </div>
       <p>{fill(t.takerNeed, { got: total(T), opp: total(1 - T) })}</p>
       {s.kaput && <p className="ok-text">{t.kaputLong}</p>}

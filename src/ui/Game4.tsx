@@ -14,6 +14,7 @@ import {
   CardBacks,
   DeclarePanel,
   ExitConfirm,
+  ScoreHistory,
   FullscreenButton,
   HandView,
   Modal,
@@ -40,6 +41,8 @@ export interface Table4Props {
   onExit: () => void;
   /** Online games explain that a bot takes over when you leave. */
   online?: boolean;
+  /** Optional team names, by team index (0 = seats 0 and 2). */
+  teamNames?: readonly [string, string] | null;
   /** Buttons for the match-over dialog. */
   endActions: ReactNode;
   /** Shown while other players are still reading the deal result. */
@@ -48,11 +51,14 @@ export interface Table4Props {
 
 /** The 4-player table, used by both the local game and online rooms. */
 export function Table4(props: Table4Props) {
-  const { lang, match, mySeat, pacing, seatName, seatNote, onBazar, onPlay, onAnnounce, onShow, onExit, online, endActions, waitingNote } = props;
+  const { lang, match, mySeat, pacing, seatName, seatNote, onBazar, onPlay, onAnnounce, onShow, onExit, online, endActions, waitingNote, teamNames } =
+    props;
   const t = STRINGS[lang];
   const [confirmExit, setConfirmExit] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const positionOf = (seat: number) => POS[(seat - mySeat + 4) % 4];
   const myTeam = teamOf4(mySeat);
+  const teamLabel = (team: number) => teamNames?.[team]?.trim() || (team === myTeam ? t.ourTeam : t.theirTeam);
   const deal: Deal4 = pacing.summary ?? match.deal;
   const paused = pacing.summary !== null || pacing.holding || match.winner !== null;
 
@@ -106,15 +112,15 @@ export function Table4(props: Table4Props) {
         <button className="btn ghost" onClick={() => (match.winner === null ? setConfirmExit(true) : onExit())}>
           ← {t.menu}
         </button>
-        <div className="scores">
+        <button className="scores" onClick={() => setShowHistory(true)} title={t.history}>
           <span className="score-pill us">
-            {t.us} <b>{match.scores[myTeam]}</b>
+            {teamLabel(myTeam)} <b>{match.scores[myTeam]}</b>
           </span>
           <span className="score-pill them">
-            {t.them} <b>{match.scores[1 - myTeam]}</b>
+            {teamLabel(1 - myTeam)} <b>{match.scores[1 - myTeam]}</b>
           </span>
           <span className="muted">/ {match.target}</span>
-        </div>
+        </button>
         <div className="contract">
           {deal.contract && (
             <>
@@ -160,6 +166,7 @@ export function Table4(props: Table4Props) {
           deal={pacing.summary}
           scoresAfter={match.history[match.history.length - 1].scoresAfter}
           myTeam={myTeam}
+          teamLabel={teamLabel}
           t={t}
           lang={lang}
           onClose={pacing.closeSummary}
@@ -175,6 +182,17 @@ export function Table4(props: Table4Props) {
           {endActions}
         </Modal>
       )}
+      {showHistory && (
+        <ScoreHistory
+          history={match.history}
+          mine={myTeam}
+          labels={[teamLabel(myTeam), teamLabel(1 - myTeam)]}
+          seatName={seatName}
+          lang={lang}
+          t={t}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
       {confirmExit && <ExitConfirm t={t} online={online} onStay={() => setConfirmExit(false)} onLeave={onExit} />}
       {waitingNote && !pacing.summary && <div className="toast">{waitingNote}</div>}
     </div>
@@ -185,6 +203,7 @@ function DealSummary4({
   deal,
   scoresAfter,
   myTeam,
+  teamLabel,
   t,
   lang,
   onClose,
@@ -193,6 +212,7 @@ function DealSummary4({
   deal: Deal4;
   scoresAfter: number[];
   myTeam: number;
+  teamLabel: (team: number) => string;
   t: Strings;
   lang: Lang;
   onClose: () => void;
@@ -215,12 +235,12 @@ function DealSummary4({
     <Modal>
       <h2>{t.dealResult}</h2>
       <p className="muted">
-        {team === myTeam ? t.contractOfUs : t.contractOfThem}: <BidLabel bid={c.bid} lang={lang} t={t} /> · {seatName(c.declarer)}
+        {t.contract}: <BidLabel bid={c.bid} lang={lang} t={t} /> · {seatName(c.declarer)}
         {c.contra > 0 && <span className="warn-text"> · {c.contra === 1 ? t.contra : t.sur}</span>}
       </p>
       <div className={`result-banner ${s.made ? 'ok' : 'bad'}`}>
         <span className="result-icon">{s.made ? '✓' : '✗'}</span>
-        {s.made ? t.madeLong : t.failedLong}
+        {teamLabel(team)} {s.made ? t.madeVerb : t.failedVerb}
       </div>
       <p>
         {s.tharsKaput
@@ -233,8 +253,8 @@ function DealSummary4({
         <thead>
           <tr>
             <th />
-            <th>{t.us}</th>
-            <th>{t.them}</th>
+            <th>{teamLabel(myTeam)}</th>
+            <th>{teamLabel(1 - myTeam)}</th>
           </tr>
         </thead>
         <tbody>
@@ -258,7 +278,19 @@ function DealSummary4({
 const HUMAN = 0;
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
 
-export function Game4({ lang, target, level, onExit }: { lang: Lang; target: Target; level: BotLevel; onExit: () => void }) {
+export function Game4({
+  lang,
+  target,
+  level,
+  teamNames,
+  onExit,
+}: {
+  lang: Lang;
+  target: Target;
+  level: BotLevel;
+  teamNames?: readonly [string, string];
+  onExit: () => void;
+}) {
   const t = STRINGS[lang];
   const [match, setMatch] = useState<Match4>(() => newMatch4(target, newSeed()));
   const lastWasRedeal = match.history.length > 0 && match.history[match.history.length - 1].bidder === null;
@@ -303,6 +335,7 @@ export function Game4({ lang, target, level, onExit }: { lang: Lang; target: Tar
       onAnnounce={(picks) => setMatch(safely((m) => announceMove(m, HUMAN, picks)))}
       onShow={() => setMatch(safely((m) => showMove(m, HUMAN)))}
       onExit={onExit}
+      teamNames={teamNames}
       endActions={
         <>
           <button className="btn primary" onClick={() => setMatch(newMatch4(target, newSeed()))}>

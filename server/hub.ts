@@ -49,8 +49,13 @@ function cleanSettings(s: Partial<RoomSettings> | undefined): RoomSettings {
     players,
     target: targetFor(players, s?.target),
     level: toLevel(s?.level),
+    ...(players === 4 && Array.isArray(s?.teamNames) && s!.teamNames.some((n) => typeof n === 'string' && n.trim())
+      ? { teamNames: [cleanTeam(s!.teamNames[0]), cleanTeam(s!.teamNames[1])] as [string, string] }
+      : {}),
   };
 }
+
+const cleanTeam = (n: unknown): string => (typeof n === 'string' ? n.trim().slice(0, 20) : '');
 
 const cleanName = (name: unknown): string =>
   (typeof name === 'string' ? name.trim().slice(0, 20) : '') || 'Player';
@@ -79,19 +84,25 @@ export function startServer(port: number, distDir: string | null = null): Promis
   const schedule = (live: Live) => {
     if (live.timer) clearTimeout(live.timer);
     live.timer = null;
-    const next = live.room.nextBot();
-    if (!next) return;
+    const bot = live.room.nextBot();
+    const takeover = live.room.nextTakeoverAt();
+    const at = Math.min(bot?.at ?? Infinity, takeover ?? Infinity);
+    if (at === Infinity) return;
     live.timer = setTimeout(() => {
       live.timer = null;
-      try {
-        live.room.runBot(next.seat);
-      } catch (e) {
-        console.error(`room ${live.room.id}: bot failed`, e);
-        return;
+      live.room.applyTakeovers();
+      const due = live.room.nextBot();
+      if (due && due.at <= Date.now() + 5) {
+        try {
+          live.room.runBot(due.seat);
+        } catch (e) {
+          console.error(`room ${live.room.id}: bot failed`, e);
+          return;
+        }
       }
       broadcast(live);
       schedule(live);
-    }, Math.max(0, next.at - Date.now()));
+    }, Math.max(0, at - Date.now()));
   };
 
   const newRoomId = () => {

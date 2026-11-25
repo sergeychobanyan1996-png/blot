@@ -29,8 +29,11 @@ export const BOT_DELAY_MS = 650;
 export const TRICK_HOLD_MS = 1100;
 /** How long the table waits for everyone to close the deal result. */
 export const ACK_TIMEOUT_MS = 25_000;
-/** A disconnected player's turn is played by a bot after this long. */
-export const TAKEOVER_MS = 30_000;
+/**
+ * A player who left gets this long to come back; then a bot of the table's level takes the seat
+ * until they return (a minute covers a reload, a dropped connection or switching apps on a phone).
+ */
+export const TAKEOVER_MS = 60_000;
 
 export class RoomError extends Error {
   constructor(
@@ -79,17 +82,44 @@ export class Room {
     if (token) {
       const seat = this.seats.findIndex((s) => s.token === token);
       if (seat >= 0) {
-        Object.assign(this.seats[seat], { name, connected: true, disconnectedAt: null });
+        // Coming back: the seat is theirs again, the stand-in bot leaves.
+        Object.assign(this.seats[seat], { name, connected: true, disconnectedAt: null, bot: false });
         return { seat, token };
       }
     }
-    const seat = this.started ? this.seats.findIndex((s) => s.bot) : this.seats.findIndex((s) => !s.token);
+    // Mid-game a newcomer takes a bot's seat, preferring seats nobody owns over ones kept for a player who left.
+    const seat = this.started ? this.freeBotSeat() : this.seats.findIndex((s) => !s.token);
     if (seat < 0) throw new RoomError('full', 'The table is full');
     const fresh = randomBytes(12).toString('hex');
     this.seats[seat] = { name, token: fresh, bot: false, connected: true, disconnectedAt: null };
     this.hostToken ??= fresh;
     this.lastChange = this.now();
     return { seat, token: fresh };
+  }
+
+  private freeBotSeat(): number {
+    const unowned = this.seats.findIndex((s) => s.bot && !s.token);
+    return unowned >= 0 ? unowned : this.seats.findIndex((s) => s.bot);
+  }
+
+  /** Players away longer than TAKEOVER_MS are replaced by a bot. Returns whether anything changed. */
+  applyTakeovers(): boolean {
+    if (!this.started) return false;
+    let changed = false;
+    for (const s of this.seats) {
+      if (s.token && !s.bot && !s.connected && s.disconnectedAt !== null && this.now() - s.disconnectedAt >= TAKEOVER_MS) {
+        s.bot = true;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /** When the next waiting player runs out of time (epoch ms), or null. */
+  nextTakeoverAt(): number | null {
+    if (!this.started) return null;
+    const times = this.seats.flatMap((s) => (s.token && !s.bot && !s.connected && s.disconnectedAt !== null ? [s.disconnectedAt + TAKEOVER_MS] : []));
+    return times.length ? Math.min(...times) : null;
   }
 
   disconnect(seat: number): void {
@@ -129,6 +159,11 @@ export class Room {
         this.requireHost(seat);
         if (this.started) throw new RoomError('illegal', 'Already started');
         for (const s of this.seats) if (!s.token) s.bot = true;
+        // Team names were given from the host's side; the host may have moved to the other team.
+        if (this.settings.teamNames && seat % 2 === 1) {
+          const [ours, theirs] = this.settings.teamNames;
+          this.settings.teamNames = [theirs, ours];
+        }
         this.newMatch();
         return;
       case 'rematch':
@@ -246,6 +281,11 @@ export class Room {
         bot: s.bot,
         connected: s.connected,
         host: s.token !== null && s.token === this.hostToken,
+        takenOver: s.bot && s.token !== null,
+        awayMs:
+          this.started && !s.bot && !s.connected && s.disconnectedAt !== null
+            ? Math.max(0, s.disconnectedAt + TAKEOVER_MS - this.now())
+            : null,
       })),
       mySeat: seat,
       started: this.started,

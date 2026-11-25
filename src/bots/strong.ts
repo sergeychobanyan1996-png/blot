@@ -109,6 +109,13 @@ export function strongPlay4(d: Deal4, seat: number, rng: Rng, samples: number): 
 
   // The bazar still tells us something: judge each sampled hand together with what that seat already played.
   const playedBy = [0, 1, 2, 3].map((s) => [...tricks.flat(), ...d.trick].filter((p) => p.seat === s).map((p) => p.card));
+  // A raise of the partner's suit shows the J or the 9. If only one of them can still be with the
+  // raiser (the other is in our hand or already played elsewhere), it is certainly there.
+  for (const [s, suit] of raisesWithHonour(d.bazar)) {
+    if (s === seat || playedBy[s].some((c) => c.suit === suit && (c.rank === 'J' || c.rank === '9'))) continue;
+    const possible = pool.filter((c) => c.suit === suit && (c.rank === 'J' || c.rank === '9'));
+    if (possible.length === 1 && !fixed[s].some((c) => sameCard(c, possible[0]))) fixed[s] = [...fixed[s], possible[0]];
+  }
   const fitsBids = bidsAccept(d.bazar, seat);
   const accept = (hands: Card[][]) => fitsBids(hands.map((h, s) => [...h, ...playedBy[s]]));
 
@@ -152,14 +159,38 @@ interface Layout {
   hands: Card[][];
 }
 
+/**
+ * Seats that raised their partner's trump suit with their first word in the bazar, and the suit.
+ * By convention such a raise shows a trump honour: the J or the 9.
+ */
+export function raisesWithHonour(b: BazarState): Map<number, Suit> {
+  const raised = new Map<number, Suit>();
+  const spoken = new Set<number>();
+  for (const { seat, action } of b.history) {
+    if (!spoken.has(seat) && action.type === 'bid' && action.bid.strain !== 'NT') {
+      const partnerBid = b.history.find(
+        (h) => h.seat === (seat + 2) % 4 && h.action.type === 'bid' && h.action.bid.strain === action.bid.strain,
+      );
+      // Only a bid the partner made before this one counts as a raise.
+      if (partnerBid && b.history.indexOf(partnerBid) < b.history.findIndex((h) => h.seat === seat && h.action === action)) {
+        raised.set(seat, action.bid.strain);
+      }
+    }
+    spoken.add(seat);
+  }
+  return raised;
+}
+
 /** Opponents' and partner's bids say something about their hands: reject layouts that contradict them. */
-function bidsAccept(b: BazarState, seat: number) {
+export function bidsAccept(b: BazarState, seat: number) {
   const best = new Map<number, { level: number; strain: Strain }>();
   for (const h of b.history) {
     if (h.seat !== seat && h.action.type === 'bid') best.set(h.seat, h.action.bid);
   }
+  const honours = [...raisesWithHonour(b)].filter(([s]) => s !== seat);
   return (hands: Card[][]) =>
-    [...best].every(([s, bid]) => handStrength(hands[s], bid.strain) + 25 >= Math.min(bid.level, 16) * 10 - 20);
+    [...best].every(([s, bid]) => handStrength(hands[s], bid.strain) + 25 >= Math.min(bid.level, 16) * 10 - 20) &&
+    honours.every(([s, suit]) => hands[s].some((c) => c.suit === suit && (c.rank === 'J' || c.rank === '9')));
 }
 
 function sampleLayouts(b: BazarState, seat: number, hand: readonly Card[], rng: Rng, n: number): Layout[] {

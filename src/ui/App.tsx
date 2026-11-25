@@ -43,6 +43,13 @@ export function App() {
   };
   const [level, setLevel] = useState<BotLevel>(() => toLevel(load<unknown>('blot.level', DEFAULT_LEVEL)));
   const [name, setName] = useState<string>(() => load('blot.name', ''));
+  const [teamNames, setTeamNames] = useState<[string, string]>(() => load('blot.teams', ['', '']));
+  const setTeam = (i: 0 | 1, v: string) => {
+    const next: [string, string] = i === 0 ? [v, teamNames[1]] : [teamNames[0], v];
+    setTeamNames(next);
+    save('blot.teams', next);
+  };
+  const teams = teamNames.some((n) => n.trim()) ? teamNames : undefined;
   const [code, setCode] = useState(roomFromUrl);
   // Opening a shared link with a known name goes straight into the room.
   const [screen, setScreen] = useState<Screen>(() =>
@@ -58,8 +65,8 @@ export function App() {
   const playerName = name.trim();
 
   if (screen.kind === 'local') {
-    const Game = players === 4 ? Game4 : Game2;
-    return <Game lang={lang} target={target} level={level} onExit={toMenu} />;
+    if (players === 4) return <Game4 lang={lang} target={target} level={level} teamNames={teams} onExit={toMenu} />;
+    return <Game2 lang={lang} target={target} level={level} onExit={toMenu} />;
   }
   if (screen.kind === 'online') return <Online lang={lang} intent={screen.intent} onExit={toMenu} />;
 
@@ -115,6 +122,12 @@ export function App() {
         </div>
         <div className="muted level-name">{levelName(lang, level)}</div>
       </section>
+      {players === 4 && (
+        <section className="team-names">
+          <input className="input" placeholder={t.teamNameOurs} value={teamNames[0]} maxLength={20} onChange={(e) => setTeam(0, e.target.value)} />
+          <input className="input" placeholder={t.teamNameTheirs} value={teamNames[1]} maxLength={20} onChange={(e) => setTeam(1, e.target.value)} />
+        </section>
+      )}
       <button className="btn primary big" onClick={() => setScreen({ kind: 'local' })}>
         {t.vsBots}
       </button>
@@ -131,7 +144,7 @@ export function App() {
         <button
           className="btn primary"
           disabled={!playerName}
-          onClick={() => setScreen({ kind: 'online', intent: { kind: 'create', name: playerName, settings: { players, target, level } } })}
+          onClick={() => setScreen({ kind: 'online', intent: { kind: 'create', name: playerName, settings: { players, target, level, ...(players === 4 && teams ? { teamNames: teams } : {}) } } })}
         >
           {t.createRoom}
         </button>

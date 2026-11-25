@@ -14,11 +14,13 @@ import {
   play2,
   show2,
   startDeal2,
+  startDeal4,
+  bazar4,
   trump2,
   declareStage2,
   legalCards2,
 } from '../src/engine';
-import { botPlay2 } from '../src/bots';
+import { botPlay2, botPlay4 } from '../src/bots';
 
 /**
  * A 2-player deal in the middle of play: `hands` are what is left, the other cards were played in
@@ -105,3 +107,40 @@ describe('announcement comparison («բոյ»)', () => {
   });
 });
 
+
+describe('4-player bot reads the bazar (level 10)', () => {
+  /**
+   * We (seat 0) bid ♥, our partner (seat 2) raised ♥ in the first round — so they hold the J or 9 of
+   * hearts; the J is ours, so the 9 is theirs. We lead 8♥. The bot on our left (seat 1) has no hearts
+   * and holds A♣: throwing the ace would just give 11 points to our partner's 9♥.
+   */
+  function raisedDeal() {
+    let d = startDeal4(3, mulberry32(5));
+    d = bazar4(d, 0, { type: 'bid', bid: { level: 8, strain: 'H', kaput: false } });
+    d = bazar4(d, 1, { type: 'pass' });
+    d = bazar4(d, 2, { type: 'bid', bid: { level: 9, strain: 'H', kaput: false } });
+    for (const seat of [3, 0, 1]) d = bazar4(d, seat, { type: 'pass' });
+    d = bazar4(d, 2, { type: 'pass' });
+    expect(d.phase).toBe('play');
+    const hands = [
+      p('JH AS KS QD 7D 8C 7S'), // 8♥ already led
+      p('AC 10C KC 9S 8S AD 10D 9D'),
+      p('9H 7H QH KH QC JC 8D JD'),
+      p('AH 10H 9C 7C 10S QS JS KD'),
+    ];
+    return {
+      ...d,
+      hands,
+      dealtHands: hands.map((h) => h.slice()),
+      decl: { ...newDeclarations(hands, 'H', [0, 1, 0, 1]), announced: [[], [], [], []] },
+      trick: [{ seat: 0, card: p('8H')[0] }],
+      turn: 1,
+    };
+  }
+
+  it('does not throw the ace under the raiser’s trump', () => {
+    const d = raisedDeal();
+    const picks = [0, 1, 2, 3, 4, 5].map((k) => cardId(botPlay4(d, 1, 10, mulberry32(k))));
+    expect(picks).not.toContain('AC');
+  });
+});

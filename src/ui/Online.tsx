@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Match2, Match4 } from '../engine/match';
 import type { Deal4 } from '../engine/deal4';
 import type { Deal2 } from '../engine/deal2';
@@ -61,14 +61,34 @@ export function Online({ lang, intent, onExit }: { lang: Lang; intent: RoomInten
 
 type Send = (m: ClientMsg) => void;
 
+const mmss = (ms: number) => {
+  const sec = Math.ceil(ms / 1000);
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+};
+
 function useSeatLabels(view: RoomView, t: Strings) {
+  // Re-render every second while someone who left is being waited for, to count down.
+  const [, setTick] = useState(0);
+  const waiting = view.seats.some((s) => s.awayMs !== null);
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [waiting]);
+
   const seatName = (seat: number) => {
     const s = view.seats[seat];
     if (seat === view.mySeat) return `${s.name ?? t.you} (${t.you})`;
-    return s.bot ? `${t.bot} ${seat + 1}` : s.name ?? '—';
+    // A seat a bot plays for someone who left keeps that person's name.
+    return s.bot && !s.takenOver ? `${t.bot} ${seat + 1}` : s.name ?? '—';
   };
   const seatNote = (seat: number) => {
     const s = view.seats[seat];
+    if (s.takenOver) return t.botPlays;
+    if (s.awayMs !== null) {
+      const left = Math.max(0, s.awayMs - (Date.now() - (view.receivedAt ?? Date.now())));
+      return `${t.offline} · ${mmss(left)}`;
+    }
     return !s.bot && !s.connected ? t.offline : null;
   };
   return { seatName, seatNote };
@@ -128,6 +148,7 @@ function OnlineTable4({ view, lang, send, onExit }: { view: RoomView; lang: Lang
       onShow={() => send({ type: 'show' })}
       onExit={onExit}
       online
+      teamNames={view.settings.teamNames}
       endActions={endActions(view, t, send, onExit)}
       waitingNote={waitingNote(view, t)}
     />

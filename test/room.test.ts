@@ -87,6 +87,27 @@ describe('online room', () => {
     tick(TAKEOVER_MS);
   });
 
+  it('a player who left gets a minute, then a bot of the same level plays; returning takes the seat back', () => {
+    const { room, a, tick } = setup4();
+    room.handle(0, { type: 'start' });
+    room.disconnect(0);
+    tick(TAKEOVER_MS - 1000);
+    expect(room.applyTakeovers()).toBe(false);
+    expect(room.view(1).seats[0].awayMs).toBe(1000);
+    expect(room.view(1).seats[0].takenOver).toBe(false);
+    tick(1000);
+    expect(room.applyTakeovers()).toBe(true);
+    expect(room.seats[0].bot).toBe(true);
+    expect(room.view(1).seats[0]).toMatchObject({ takenOver: true, awayMs: null, name: 'Anna' });
+    expect(room.nextTakeoverAt()).toBeNull();
+    // A newcomer takes an unowned bot seat, not the one kept for Anna.
+    const c = room.join('Carl');
+    expect(c.seat).not.toBe(0);
+    // Anna comes back with her token: the seat is hers again.
+    expect(room.join('Anna', a.token).seat).toBe(0);
+    expect(room.seats[0]).toMatchObject({ bot: false, connected: true });
+  });
+
   it('plays a whole match with two humans and two bots, waiting for acks between deals', () => {
     const { room, tick, now } = setup4();
     room.handle(0, { type: 'start' });

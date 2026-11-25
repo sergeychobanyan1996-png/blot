@@ -1,6 +1,6 @@
 // Matches: a sequence of deals until a side reaches the target — RULES.md Բ7, Գ6.
 
-import type { Card } from './cards';
+import type { Card, Strain } from './cards';
 import type { BazarAction } from './bazar';
 import { type Deal4, announce4, bazar4, declareStage4, play4, show4, startDeal4 } from './deal4';
 import { type Deal2, type TrumpAction, announce2, declareStage2, play2, show2, startDeal2, trump2 } from './deal2';
@@ -17,6 +17,8 @@ export function targetFor(players: 2 | 4, wanted: unknown): Target {
 }
 
 export interface DealSummary {
+  /** What was played: the 4-player bid (with the declaring seat and contra), or the 2-player trump. */
+  contract?: { strain: Strain; level?: number; kaput?: boolean; declarer: number; contra?: number };
   dealer: number;
   bidder: number | null;
   made: boolean | null;
@@ -96,7 +98,8 @@ function settle4(m: Match4): Match4 {
     tharsKaput: s.tharsKaput,
     kaputNoEnd: s.made && d.tally!.tricksWon[c.team] === 8 && c.contra === 0,
   });
-  const history = [...m.history, { dealer: d.dealer, bidder: c.team, made: s.made, points: s.points, scoresAfter: after }];
+  const contract = { strain: c.bid.strain, level: c.bid.level, kaput: c.bid.kaput, declarer: c.declarer, contra: c.contra };
+  const history = [...m.history, { dealer: d.dealer, bidder: c.team, made: s.made, points: s.points, scoresAfter: after, contract }];
   const settled = { ...m, scores: after, history, winner, lastDeal: d };
   return winner === null ? nextDeal(settled, start) : settled;
 }
@@ -107,7 +110,8 @@ function settle2(m: Match2): Match2 {
   const s = d.score!;
   const after = m.scores.map((v, i) => v + s.points[i]);
   const winner = matchWinner({ before: m.scores, after, target: m.target, bidder: d.taker!, made: s.made });
-  const history = [...m.history, { dealer: d.dealer, bidder: d.taker, made: s.made, points: s.points, scoresAfter: after }];
+  const contract = { strain: d.trump!, declarer: d.taker! };
+  const history = [...m.history, { dealer: d.dealer, bidder: d.taker, made: s.made, points: s.points, scoresAfter: after, contract }];
   const settled = { ...m, scores: after, history, winner, lastDeal: d };
   return winner === null
     ? nextDeal(settled, (dealer, idx) => startDeal2(dealer, dealRng(m.seed, idx)))

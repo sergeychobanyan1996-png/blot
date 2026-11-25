@@ -4,6 +4,7 @@ import type { Combo } from '../engine/combos';
 import type { Declarations } from '../engine/declare';
 import type { BazarAction, BazarOptions, Bid } from '../engine/bazar';
 import type { PlayedCard } from '../engine/tricks';
+import type { DealSummary } from '../engine/match';
 import { type Lang, type Strings, SUIT_SYMBOL, isRed, strainName } from './i18n';
 
 const SUIT_ORDER: Suit[] = ['S', 'H', 'C', 'D'];
@@ -526,6 +527,90 @@ export function FullscreenButton({ t }: { t: Strings }) {
     <button className="btn ghost fullscreen-btn" onClick={toggle} title={t.fullscreen} aria-label={t.fullscreen}>
       ⛶
     </button>
+  );
+}
+
+/** Every deal of the match so far: what was played, made or not, points and running score. */
+export function ScoreHistory({
+  history,
+  mine,
+  labels,
+  seatName,
+  lang,
+  t,
+  onClose,
+}: {
+  history: readonly DealSummary[];
+  /** Side (team or seat) shown in the first column. */
+  mine: number;
+  labels: [string, string];
+  seatName: (seat: number) => string;
+  lang: Lang;
+  t: Strings;
+  onClose: () => void;
+}) {
+  const other = 1 - mine;
+  return (
+    <Modal>
+      <h2>{t.history}</h2>
+      <div className="history-scroll">
+        <table className="summary history">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>{t.contract}</th>
+              <th />
+              <th>{labels[0]}</th>
+              <th>{labels[1]}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  {t.noDealsYet}
+                </td>
+              </tr>
+            )}
+            {history.map((h, i) => {
+              const c = h.contract;
+              if (h.bidder === null || !c) {
+                return (
+                  <tr key={i} className="muted">
+                    <td>{i + 1}</td>
+                    <td colSpan={2}>{t.redealRow}</td>
+                    <td>{h.scoresAfter[mine]}</td>
+                    <td>{h.scoresAfter[other]}</td>
+                  </tr>
+                );
+              }
+              return (
+                <tr key={i}>
+                  <td>{i + 1}</td>
+                  <td className="history-contract">
+                    {c.level !== undefined && <>{c.level} </>}
+                    <StrainLabel strain={c.strain} lang={lang} />
+                    {c.kaput && <> {t.kaput}</>}
+                    {!!c.contra && <span className="warn-text"> {c.contra === 1 ? t.contra : t.sur}</span>}
+                    <span className="muted"> · {seatName(c.declarer)}</span>
+                  </td>
+                  <td className={h.made ? 'ok-text' : 'warn-text'}>{h.made ? '✓' : '✗'}</td>
+                  <td>
+                    <b>{h.scoresAfter[mine]}</b> <span className="muted">+{h.points[mine]}</span>
+                  </td>
+                  <td>
+                    <b>{h.scoresAfter[other]}</b> <span className="muted">+{h.points[other]}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button className="btn primary" onClick={onClose}>
+        {t.close}
+      </button>
+    </Modal>
   );
 }
 
