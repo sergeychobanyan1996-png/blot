@@ -13,7 +13,7 @@ export function sortHand(hand: readonly Card[], trump: Suit | null): Card[] {
   return [...hand].sort(
     (a, b) =>
       SUIT_ORDER.indexOf(a.suit) - SUIT_ORDER.indexOf(b.suit) ||
-      rankStrength(b.rank, b.suit === trump) - rankStrength(a.rank, a.suit === trump),
+      RANKS.indexOf(b.rank) - RANKS.indexOf(a.rank),
   );
 }
 
@@ -58,39 +58,65 @@ export function SuitIcon({ suit, className }: { suit: Suit; className?: string }
   );
 }
 
-const INK = '#111';
-const GOLD = '#e8b21e';
-const BLUE = '#1f4e9c';
-const SKIN = '#f6d8b8';
+const INK = '#1b1b1b';
+const GOLD = '#c9a13b';
 
-/** One half of a double-headed court figure (drawn twice, the second turned upside down). */
-function CourtHalf({ rank, red, suit }: { rank: 'J' | 'Q' | 'K'; red: boolean; suit: Suit }) {
-  const accent = red ? '#d0121b' : INK;
+/** Emblem over the letter: crown (K), tiara (Q), halberd (J). */
+function CourtEmblem({ rank }: { rank: 'J' | 'Q' | 'K' }) {
+  if (rank === 'K') {
+    return (
+      <g fill={GOLD} stroke={INK} strokeWidth={0.8} strokeLinejoin="round">
+        <path d="M37 25 L35 11 L42.5 17 L50 8 L57.5 17 L65 11 L63 25 Z" />
+        <rect x="37" y="25" width="26" height="4" rx="1" />
+        <circle cx="50" cy="8" r="1.8" />
+      </g>
+    );
+  }
+  if (rank === 'Q') {
+    return (
+      <g fill={GOLD} stroke={INK} strokeWidth={0.8} strokeLinejoin="round">
+        <path d="M38 27 Q39 17 43.5 20 Q46.5 11 50 17 Q53.5 11 56.5 20 Q61 17 62 27 Z" />
+        <circle cx="43.5" cy="19" r="1.5" />
+        <circle cx="50" cy="13.5" r="1.8" />
+        <circle cx="56.5" cy="19" r="1.5" />
+      </g>
+    );
+  }
   return (
-    <g strokeWidth={1.2} stroke={INK} strokeLinejoin="round">
-      {/* robe */}
-      <path d="M14 70 L22 44 Q50 33 78 44 L86 70 Z" fill={GOLD} />
-      <path d="M22 70 L27 50 L36 48 L34 70 Z" fill={BLUE} />
-      <path d="M78 70 L73 50 L64 48 L66 70 Z" fill={BLUE} />
-      <path d="M41 41 L59 41 L63 70 L37 70 Z" fill={accent} />
-      <path d="M50 46 L55 56 L50 66 L45 56 Z" fill={GOLD} />
-      <path d="M36 40 Q50 49 64 40 L60 35 Q50 42 40 35 Z" fill="#fff" />
-      {/* head */}
-      {rank === 'Q' && <path d="M38 22 Q34 38 42 41 L58 41 Q66 38 62 22 Z" fill={GOLD} />}
-      <circle cx="50" cy="26" r="10" fill={SKIN} />
-      <path d="M46 25 h2 M52 25 h2 M48 31 q2 1.5 4 0" fill="none" strokeWidth={1} />
-      {/* headwear */}
-      {rank === 'K' && <path d="M38 18 L39 5 L44.5 12 L50 3 L55.5 12 L61 5 L62 18 Z" fill={GOLD} />}
-      {rank === 'K' && <path d="M44 33 Q50 41 56 33 Q50 37 44 33 Z" fill={INK} />}
-      {rank === 'Q' && <path d="M40 18 Q41 9 44 13 Q47 6 50 12 Q53 6 56 13 Q59 9 60 18 Z" fill={GOLD} />}
-      {rank === 'J' && <path d="M37 20 Q49 4 64 15 L66 20 Z" fill={accent} />}
-      {rank === 'J' && <path d="M62 15 Q74 6 78 14" fill="none" stroke={GOLD} strokeWidth={2.5} />}
-      {/* what they hold */}
-      {rank === 'K' && <path d="M80 8 L80 58 M75 16 L85 16" fill="none" strokeWidth={2.2} />}
-      {rank === 'Q' && <circle cx="24" cy="40" r="4" fill={accent} />}
-      {rank === 'Q' && <path d="M24 44 L26 60" fill="none" />}
-      {rank === 'J' && <path d="M20 10 L22 60 M16 14 Q20 6 24 14" fill="none" strokeWidth={2} />}
-      <g transform="translate(5 5) scale(0.15)" fill={accent} stroke="none">
+    <g fill={GOLD} stroke={INK} strokeWidth={0.8} strokeLinejoin="round">
+      <path d="M49 12 L51 12 L51 29 L49 29 Z" />
+      <path d="M50 4 L53.5 12 L46.5 12 Z" />
+      <path d="M51 13 Q60 13 59 21 Q55 17 51 18 Z" />
+    </g>
+  );
+}
+
+/**
+ * One half of a court card, drawn twice (the second turned upside down) as on a real deck:
+ * an emblem, a large serif letter and the suit on both sides — clean rather than a cartoon figure.
+ */
+function CourtHalf({ rank, red, suit }: { rank: 'J' | 'Q' | 'K'; red: boolean; suit: Suit }) {
+  const accent = red ? '#c8102e' : INK;
+  return (
+    <g>
+      <g transform="translate(50 13) scale(1.25) translate(-50 -13)">
+        <CourtEmblem rank={rank} />
+      </g>
+      <text
+        x="50"
+        y="66"
+        textAnchor="middle"
+        fontFamily="Georgia, 'Times New Roman', serif"
+        fontSize="44"
+        fontWeight="700"
+        fill={accent}
+      >
+        {rank}
+      </text>
+      <g transform="translate(9 41) scale(0.16)" fill={accent}>
+        <SuitShape suit={suit} />
+      </g>
+      <g transform="translate(75 41) scale(0.16)" fill={accent}>
         <SuitShape suit={suit} />
       </g>
     </g>
@@ -100,13 +126,17 @@ function CourtHalf({ rank, red, suit }: { rank: 'J' | 'Q' | 'K'; red: boolean; s
 function CourtArt({ card }: { card: Card }) {
   const rank = card.rank as 'J' | 'Q' | 'K';
   const red = isRed(card.suit);
+  const tint = red ? '#fbf1ef' : '#f2f3f6';
   return (
-    <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <rect x="0" y="0" width="100" height="140" fill={tint} />
+      <rect x="4" y="4" width="92" height="132" fill="none" stroke={GOLD} strokeWidth="1.4" />
+      <rect x="7" y="7" width="86" height="126" fill="none" stroke={GOLD} strokeWidth="0.5" />
       <CourtHalf rank={rank} red={red} suit={card.suit} />
       <g transform="rotate(180 50 70)">
         <CourtHalf rank={rank} red={red} suit={card.suit} />
       </g>
-      <path d="M0 70 H100" stroke={INK} strokeWidth={1} />
+      <path d="M16 70 H84" stroke={GOLD} strokeWidth="0.8" />
     </svg>
   );
 }
