@@ -177,23 +177,49 @@ export function CardView({
   );
 }
 
-export function CardBacks({ count, vertical }: { count: number; vertical?: boolean }) {
+/**
+ * Another player's hand: face-down cards, with any combination they have shown laid
+ * face up in the same place (not over the table).
+ */
+export function CardBacks({ count, vertical, open = [], title }: { count: number; vertical?: boolean; open?: readonly Card[]; title?: string }) {
+  const faces = open.slice(0, count);
   return (
-    <div className={`backs ${vertical ? 'vertical' : ''}`}>
-      {Array.from({ length: count }, (_, i) => (
+    <div className={`backs ${vertical ? 'vertical' : ''} ${faces.length ? 'has-open' : ''}`} title={title}>
+      {faces.map((c) => (
+        <CardView key={`${c.rank}${c.suit}`} card={c} className="open" />
+      ))}
+      {Array.from({ length: count - faces.length }, (_, i) => (
         <div key={i} className="card back" />
       ))}
     </div>
   );
 }
 
-/** The player's hand as a fan; cards are dealt in with a short stagger. */
+/** Shown combination cards a seat still holds, while they stay on view (the first two tricks). */
+export function openCards(decl: Declarations | null, seat: number, tricksDone: number, played: readonly PlayedCard[]): Card[] {
+  if (!decl || tricksDone > 2) return [];
+  return decl.shown[seat]
+    .flatMap((c) => c.cards)
+    .filter((c, i, all) => all.findIndex((o) => sameCard(o, c)) === i)
+    .filter((c) => !played.some((p) => sameCard(p.card, c)));
+}
+
+export function openTitle(decl: Declarations | null, seat: number, t: Strings): string | undefined {
+  const shown = decl?.shown[seat];
+  return shown?.length ? shown.map((c) => comboText(c, t)).join(', ') : undefined;
+}
+
+/**
+ * The player's hand as a fan; cards are dealt in with a short stagger. No card is marked
+ * as playable: a card that may not be played just shakes and says so.
+ */
 export function HandView({
   hand,
   legal,
   trump,
   onPlay,
   locked,
+  illegalText,
 }: {
   hand: readonly Card[];
   legal: readonly Card[];
@@ -201,14 +227,24 @@ export function HandView({
   onPlay: (c: Card) => void;
   /** Cards cannot be played yet (e.g. combinations must be announced first). */
   locked?: boolean;
+  illegalText: string;
 }) {
   const active = legal.length > 0 && !locked;
   const cards = sortHand(hand, trump);
   const mid = (cards.length - 1) / 2;
   const spread = Math.min(5, 36 / Math.max(1, cards.length));
+  const [refused, setRefused] = useState<{ key: string; n: number } | null>(null);
+  const refuse = (key: string) => {
+    const n = (refused?.n ?? 0) + 1;
+    // Clear first so a second tap on the same card shakes it again.
+    setRefused(null);
+    requestAnimationFrame(() => setRefused({ key, n }));
+    setTimeout(() => setRefused((r) => (r?.n === n ? null : r)), 1600);
+  };
   return (
     <div className="hand">
       {cards.map((c, i) => {
+        const key = `${c.rank}${c.suit}`;
         const ok = active && legal.some((l) => sameCard(l, c));
         const off = i - mid;
         const style = {
@@ -218,16 +254,16 @@ export function HandView({
         } as CSSProperties;
         return (
           <CardView
-            key={`${c.rank}${c.suit}`}
+            key={key}
             card={c}
-            playable={ok}
-            dimmed={active && !ok}
-            onClick={() => onPlay(c)}
-            className="in-hand"
+            playable={active}
+            onClick={() => (ok ? onPlay(c) : refuse(key))}
+            className={`in-hand ${refused?.key === key ? 'refused' : ''}`}
             style={style}
           />
         );
       })}
+      {refused && <div className="illegal-tip">{illegalText}</div>}
     </div>
   );
 }
@@ -448,6 +484,8 @@ export function DeclarePanel({
 export function SeatCombos({ decl, seat, mySeat, tricksDone, t }: { decl: Declarations | null; seat: number; mySeat: number; tricksDone: number; t: Strings }) {
   if (!decl || tricksDone > 2) return null;
   const shown = decl.shown[seat];
+  // Other players' shown cards are laid face up in their hand (CardBacks), not here.
+  if (shown.length && seat !== mySeat) return null;
   if (shown.length) {
     const cards = shown.flatMap((c) => c.cards).filter((c, i, all) => all.findIndex((o) => sameCard(o, c)) === i);
     return (

@@ -586,6 +586,72 @@ button {
 .card.dimmed {
   filter: brightness(0.62) saturate(0.7);
 }
+/* A card that may not be played: a short shake (deal-in is kept so it does not replay). */
+.card.in-hand.refused {
+  animation:
+    deal-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards,
+    refuse 0.4s ease-in-out;
+  animation-delay: calc(var(--i) * 45ms), 0s;
+}
+@keyframes refuse {
+  20%,
+  60% {
+    transform: translateY(var(--drop)) rotate(var(--rot)) translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateY(var(--drop)) rotate(var(--rot)) translateX(6px);
+  }
+}
+.hand {
+  position: relative;
+}
+.illegal-tip {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(150, 30, 40, 0.92);
+  color: #fff;
+  font-size: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: pop 0.25s ease-out;
+}
+/* Shown combination cards, face up in another player's hand. */
+.backs .card.open {
+  --cw: 40px;
+  box-shadow: 0 0 0 2px var(--gold), 0 2px 5px rgba(0, 0, 0, 0.4);
+  animation: pop 0.3s ease-out;
+}
+.backs .card.open .art,
+.backs .card.open .corner.br {
+  display: none;
+}
+.backs .card.open .corner.tl {
+  width: 45%;
+  top: 3px;
+  left: 2px;
+}
+.backs .card.open .corner .rank {
+  font-size: 15px;
+}
+.backs .card.open .corner .suit {
+  font-size: 13px;
+}
+.backs .card.open + .card {
+  margin-left: -18px;
+}
+.backs.vertical .card.open + .card {
+  margin-left: 0;
+  margin-top: -30px;
+}
+.backs.has-open {
+  align-items: center;
+}
 .card.playable:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;

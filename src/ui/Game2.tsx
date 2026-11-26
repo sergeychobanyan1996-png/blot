@@ -16,6 +16,8 @@ import {
   HandView,
   Modal,
   SeatCombos,
+  openCards,
+  openTitle,
   StrainLabel,
   TrickView,
   blotCall,
@@ -114,7 +116,9 @@ export function Table2(props: Table2Props) {
           )}
           {deal.taker === seat && <span className="taker-chip">{t.trump}</span>}
         </div>
-        {seat === opp && <CardBacks count={deal.hands[opp].length} />}
+        {seat === opp && (
+          <CardBacks count={deal.hands[opp].length} open={openCards(deal.decl, opp, deal.tricks.length, played)} title={openTitle(deal.decl, opp, t)} />
+        )}
         <div className="seat-extras">
           {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
           {call && <Bubble tone="gold">{call}</Bubble>}
@@ -181,7 +185,7 @@ export function Table2(props: Table2Props) {
           )}
           {legal.length > 0 && !declaring && <div className="turn-hint">{t.yourTurn}</div>}
         </div>
-        <HandView key={match.dealIndex} hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} locked={stage === 'announce'} />
+        <HandView key={match.dealIndex} hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} locked={stage === 'announce'} illegalText={t.illegalCard} />
       </div>
 
       {pacing.summary && (

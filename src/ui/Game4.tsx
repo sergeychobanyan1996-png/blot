@@ -19,6 +19,8 @@ import {
   HandView,
   Modal,
   SeatCombos,
+  openCards,
+  openTitle,
   TrickView,
   blotCall,
 } from './components';
@@ -94,7 +96,14 @@ export function Table4(props: Table4Props) {
             </span>
           )}
         </div>
-        {seat !== mySeat && <CardBacks count={deal.hands[seat].length} vertical={positionOf(seat) !== 'top'} />}
+        {seat !== mySeat && (
+          <CardBacks
+            count={deal.hands[seat].length}
+            vertical={positionOf(seat) !== 'top'}
+            open={openCards(deal.decl, seat, deal.tricks.length, played)}
+            title={openTitle(deal.decl, seat, t)}
+          />
+        )}
         {/* Floats beside the seat so bubbles never resize the table. */}
         <div className="seat-extras">
           {seatNote?.(seat) && <div className="seat-note">{seatNote(seat)}</div>}
@@ -158,7 +167,7 @@ export function Table4(props: Table4Props) {
           )}
           {legal.length > 0 && !declaring && <div className="turn-hint">{t.yourTurn}</div>}
         </div>
-        <HandView key={match.dealIndex} hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} locked={stage === 'announce'} />
+        <HandView key={match.dealIndex} hand={deal.hands[mySeat]} legal={legal} trump={trump} onPlay={onPlay} locked={stage === 'announce'} illegalText={t.illegalCard} />
       </div>
 
       {pacing.summary && (
