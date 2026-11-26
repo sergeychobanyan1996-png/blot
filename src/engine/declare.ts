@@ -4,8 +4,8 @@
 // side whose announcement is best may show, before its second card. Only shown combinations score (Ա4);
 // a player who plays the second card without showing loses them. Բլոտ is called while playing.
 
-import type { Card, Strain } from './cards';
-import { type Combo, type ComboResolution, compareCombos, findBlotSeat, findCombos } from './combos';
+import type { Card, Rank, Strain } from './cards';
+import { type Combo, type ComboResolution, compareCombos, compareKeys, comboKey, findBlotSeat, findCombos } from './combos';
 
 export interface Declarations {
   /** Combinations found in each dealt hand (private to that seat). */
@@ -19,6 +19,16 @@ export interface Declarations {
   sides: number[];
   /** Side whose announcement is best, decided after the first trick; null if nobody announced. */
   leader: number | null;
+  /** The «բոյ» exchange after the first trick, in speaking order; null when it was not needed. */
+  boyTalk?: BoyLine[] | null;
+}
+
+/** One answer to «բոյ»: the top card of `seat`'s best announcement, and "trump" if that settled it. */
+export interface BoyLine {
+  seat: number;
+  top: Rank;
+  trump: boolean;
+  wins: boolean;
 }
 
 export type DeclareStage = 'announce' | 'show' | null;
@@ -31,6 +41,7 @@ export function newDeclarations(hands: readonly (readonly Card[])[], strain: Str
     blotSeat: findBlotSeat(hands, strain),
     sides: sides.slice(),
     leader: null,
+    boyTalk: null,
   };
 }
 
@@ -38,7 +49,36 @@ export function newDeclarations(hands: readonly (readonly Card[])[], strain: Str
 export function settleAnnouncements(d: Declarations, strain: Strain, order: readonly number[]): Declarations {
   const announced = d.announced.map((a) => a ?? []);
   const { winnerTeam } = compareCombos(announced, strain, order, (s) => d.sides[s], 2, null);
-  return { ...d, leader: winnerTeam };
+  return { ...d, leader: winnerTeam, boyTalk: boyTalk(announced, d.sides, strain, order) };
+}
+
+/**
+ * The «բոյ» question, asked only when both sides' best announcements are of the same class.
+ * The side that did not announce first names its top card first; the trump is mentioned only
+ * when the top cards are equal too.
+ */
+function boyTalk(announced: Combo[][], sides: readonly number[], strain: Strain, order: readonly number[]): BoyLine[] | null {
+  const best = new Map<number, { seat: number; combo: Combo; key: number[] }>();
+  for (const seat of order) {
+    for (const combo of announced[seat]) {
+      const key = comboKey(combo, strain);
+      const cur = best.get(sides[seat]);
+      if (!cur || compareKeys(key, cur.key) > 0) best.set(sides[seat], { seat, combo, key });
+    }
+  }
+  if (best.size < 2) return null;
+  const [a, b] = [...best.values()].sort((x, y) => order.indexOf(x.seat) - order.indexOf(y.seat));
+  // Same class: same kind and value ("Թերզ" against "Թերզ").
+  if (a.key[0] !== b.key[0] || a.key[1] !== b.key[1]) return null;
+  const sameTop = a.key[2] === b.key[2];
+  const winner = compareKeys(b.key, a.key) > 0 ? b.seat : a.seat;
+  const line = (x: typeof a): BoyLine => ({
+    seat: x.seat,
+    top: x.combo.kind === 'seq' ? x.combo.top : x.combo.rank,
+    trump: sameTop && x.combo.kind === 'seq' && x.combo.suit === strain,
+    wins: x.seat === winner,
+  });
+  return [line(b), line(a)];
 }
 
 /** What `seat` may do with its combinations before playing its card now. */

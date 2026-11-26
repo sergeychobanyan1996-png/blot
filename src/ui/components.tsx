@@ -29,20 +29,21 @@ const PIPS: Partial<Record<Rank, [number, number, boolean][]>> = {
 function SuitShape({ suit }: { suit: Suit }) {
   switch (suit) {
     case 'H':
-      return <path d="M50 92 C22 70 4 52 4 31 C4 14 16 4 30 4 C40 4 47 10 50 19 C53 10 60 4 70 4 C84 4 96 14 96 31 C96 52 78 70 50 92 Z" />;
+      return <path d="M50 94 L13 53 C3 42 3 24 13 14 C23 4 41 5 50 21 C59 5 77 4 87 14 C97 24 97 42 87 53 Z" />;
     case 'D':
-      return <path d="M50 2 L88 50 L50 98 L12 50 Z" />;
+      return <path d="M50 3 Q65 29 85 50 Q65 71 50 97 Q35 71 15 50 Q35 29 50 3 Z" />;
     case 'S':
       return (
-        <path d="M50 3 C38 24 4 40 4 63 C4 78 15 88 29 88 C38 88 44 84 47 78 C46 88 41 93 32 97 L68 97 C59 93 54 88 53 78 C56 84 62 88 71 88 C85 88 96 78 96 63 C96 40 62 24 50 3 Z" />
+        <path d="M50 3 L87 45 C97 56 95 74 82 80 C71 85 59 81 53 73 C54 85 58 91 67 96 L33 96 C42 91 46 85 47 73 C41 81 29 85 18 80 C5 74 3 56 13 45 Z" />
       );
     case 'C':
       return (
         <>
-          <circle cx="50" cy="27" r="22" />
-          <circle cx="25" cy="60" r="22" />
-          <circle cx="75" cy="60" r="22" />
-          <path d="M42 50 L58 50 L56 70 C57 84 62 92 70 97 L30 97 C38 92 43 84 44 70 Z" />
+          <circle cx="50" cy="27" r="19" />
+          <circle cx="29" cy="59" r="19" />
+          <circle cx="71" cy="59" r="19" />
+          <circle cx="50" cy="52" r="11" />
+          <path d="M47 58 C47 78 43 89 32 96 L68 96 C57 89 53 78 53 58 Z" />
         </>
       );
   }
@@ -498,23 +499,26 @@ export function SeatCombos({ decl, seat, mySeat, tricksDone, t }: { decl: Declar
   }
   const announced = decl.announced[seat];
   if (!announced?.length || tricksDone > 1) return null;
-  // After the first trick the announcements are compared: «բոյ» (top card) decides equal classes.
+  // An announcement says only the class ("Թերզ"). After the first trick they are compared; only when
+  // both sides announced the same class is «բոյ» asked, the side that announced second answering first.
   const compared = tricksDone >= 1 && decl.leader !== null;
   const wins = compared && decl.sides[seat] === decl.leader;
-  const text = announced
-    .map((c) => (seat === mySeat ? comboText(c, t) : compared ? comboWithBoy(c, t) : comboClass(c, t)))
-    .join(' · ');
+  const text = announced.map((c) => comboClass(c, t)).join(' · ');
+  const turn = compared ? (decl.boyTalk ?? []).findIndex((l) => l.seat === seat) : -1;
+  const boy = turn >= 0 ? decl.boyTalk![turn] : null;
   return (
     <div className={`combo-tag ${compared ? (wins ? 'win' : 'lose') : ''}`}>
       {compared && (wins ? '✓ ' : '✗ ')}
       {text}
+      {boy && (
+        <span className="boy-answer" style={{ animationDelay: `${turn * 0.9}s` }}>
+          {' · '}
+          {t.boy} {boy.top}
+          {boy.trump && ` · ${t.trump.toLowerCase()}`}
+        </span>
+      )}
     </div>
   );
-}
-
-/** Class plus «բոյ» (top card), as answered when both sides announce: "Թերզ · բոյ K". */
-function comboWithBoy(c: Combo, t: Strings): string {
-  return c.kind === 'carre' ? `${t.carre} ${c.rank}` : `${comboClass(c, t)} · ${t.boy} ${c.top}`;
 }
 
 /** «Բլոտ» / «Ռեբլոտ» when the holder plays the trump K or Q. */

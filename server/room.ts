@@ -296,12 +296,12 @@ export class Room {
 }
 
 /**
- * An announcement says only the class ("Թերզ", "50", "Չորս թուղթ"). Once announcements are compared
- * after the first trick, the «բոյ» (top card) is known too — never the suit or the cards.
+ * An announcement says only the class ("Թերզ", "50", "Չորս թուղթ"). The «բոյ» (top card) is told
+ * only through `boyTalk`, when that question was needed — never the suit or the cards.
  */
-function classOnly(c: Combo, compared: boolean): Combo {
-  if (c.kind === 'seq') return { ...c, suit: 'S', top: compared ? c.top : '7', cards: [] };
-  return { ...c, rank: compared ? c.rank : '7', cards: [] };
+function classOnly(c: Combo): Combo {
+  if (c.kind === 'seq') return { ...c, suit: 'S', top: '7', cards: [] };
+  return { ...c, rank: '7', cards: [] };
 }
 
 /**
@@ -317,17 +317,17 @@ function redactDecl(
   done: boolean,
 ): Declarations | null {
   if (!decl || done) return decl;
-  const compared = tricksDone >= 1;
   const trump = strain ? trumpOf(strain) : null;
   const b = decl.blotSeat;
   const called = b !== null && played.some((p) => p.seat === b && p.card.suit === trump && (p.card.rank === 'K' || p.card.rank === 'Q'));
   return {
     detected: decl.detected.map((list, s) => (s === seat ? list : [])),
-    announced: decl.announced.map((list, s) => (s === seat || !list ? list : list.map((c) => classOnly(c, compared)))),
+    announced: decl.announced.map((list, s) => (s === seat || !list ? list : list.map(classOnly))),
     shown: decl.shown,
     blotSeat: b === seat || called ? b : null,
     sides: decl.sides,
     leader: decl.leader,
+    boyTalk: tricksDone >= 1 ? decl.boyTalk ?? null : null,
   };
 }
 
